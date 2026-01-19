@@ -1,4 +1,13 @@
 #!/bin/bash
+#/bin/bash
+
+#download model weights for xda
+mkdir "src/reveng_ml/ComparativeEvaluation/XDA/checkpoints"
+mkdir "src/reveng_ml/ComparativeEvaluation/XDA/checkpoints/finetune_msvs_funcbound_64"
+wget "https://drive.usercontent.google.com/download?id=10XZSE8jfFp3P5KjHp4SFZ0qUmOJoA8uI&export=download&authuser=0&confirm=t" -O "src/reveng_ml/ComparativeEvaluation/XDA/checkpoints/finetune_msvs_funcbound_64/checkpoint_best.pt"
+
+mkdir "src/reveng_ml/ComparativeEvaluation/XDA/checkpoints/finetune_elf_funcbound_64"
+wget "https://drive.usercontent.google.com/download?id=1i9nMRwXj6b8mGG9LGUmon3BkOTOeyIqv&export=download&authuser=0&confirm=t" -O "src/reveng_ml/ComparativeEvaluation/XDA/checkpoints/finetune_elf_funcbound_64/checkpoint_best_elf_funcBound.pt"
 
 module load devel/miniforge/25.3.1-python-3.12
 eval "$(conda shell.bash hook)"
