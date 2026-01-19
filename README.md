@@ -16,7 +16,7 @@ This project contains a machine learning pipeline to identify function and instr
 To set up the development environment, you will need [uv](https://github.com/astral-sh/uv) as well as miniforge.
 Then setup the [xda-model](https://arxiv.org/pdf/2010.00770) project to allow evaluation against it:
 ```bash
-bash -i <XDA_Setup.sh
+./XDASetup.sh
 ```
 
 ### Usage
