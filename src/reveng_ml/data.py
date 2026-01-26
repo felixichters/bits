@@ -12,6 +12,10 @@ from elftools.elf.elffile import ELFFile
 from elftools.common.exceptions import ELFError
 from elftools.dwarf import callframe
 import os
+import pickle
+import tqdm
+import numpy 
+
 def strip_elf_debug_sections(file_path: Path, output_path: Path):
     """
     Strips debug sections from an ELF file using 'strip' CLI tool.
@@ -97,48 +101,67 @@ class BinaryChunkDataset(Dataset):
     """
     PyTorch Dataset for binary files.
 
-    This dataset reads binary files from a directory, extracts function boundaries
+    This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_dir: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True):
+    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True):
         """
         Args:
-            data_dir (Path): Directory containing the *unstripped* binary files.
+            data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.
             chunk_size (int): The size of each data chunk.
             stride (int): The step size to move when creating overlapping chunks.
         """
-        self.data_dir = data_dir
-        self.chunk_size = chunk_size
-        self.stride = stride
-        self.chunks: list[tuple[torch.Tensor, torch.Tensor]] = []
-        self.onlyDotText = onlyIncludeCodeSegment
-        
-        self.files = []
-        print("Scanning input files for dataset in directory:", data_dir)
-        for f in data_dir.iterdir():
-            if f.is_file():
-                self.files.append(f)
-                # Skip ELF validation for performance reasons
-                #try:
-                #    with open(f, 'rb') as a_file:
-                #        # Check for ELF magic number
-                #        if a_file.read(4) == b'\x7fELF':
-                #            self.files.append(f)
-                #except IOError:
-                #    pass # Ignore files we can't read
-        
-        # Randomize file order
-        if randomizeFileOrder:
-            shuffle(self.files)
-        self._create_chunks()
+        if data_path.is_file():
+            try:
+                with open(data_path,"rb") as f:
+                    dataset = pickle.load(f)
+                    self.data_path = dataset[0]
+                    self.chunk_size = dataset[1]
+                    self.stride = dataset[2]
+                    self.onlyDotText = dataset[3]
+                    self.files = dataset[4]
+                with open(str(data_path) + ".np","rb") as f:
+                    self.chunks = [(torch.tensor(label_data_pair[0]),torch.tensor(label_data_pair[1])) for label_data_pair in numpy.load(f)]
+            except Exception as e:
+                print(e)
+                raise e
+        else:
+            self.data_path = data_path
+            self.chunk_size = chunk_size
+            self.stride = stride
+            self.chunks: list[tuple[torch.Tensor, torch.Tensor]] = []
+            self.onlyDotText = onlyIncludeCodeSegment
+            
+            self.files = []
+            print("Scanning input files for dataset in directory:", data_path)
+            lst = os.listdir(data_path)
+            number_files = len(lst)
+            print(f"Found {number_files} files. Creating dataset...")
 
+            for f in data_path.iterdir():
+                if f.is_file():
+                    self.files.append(f)
+                    # Skip ELF validation for performance reasons
+                    #try:
+                    #    with open(f, 'rb') as a_file:
+                    #        # Check for ELF magic number
+                    #        if a_file.read(4) == b'\x7fELF':
+                    #            self.files.append(f)
+                    #except IOError:
+                    #    pass # Ignore files we can't read
+            
+            # Randomize file order
+            if randomizeFileOrder:
+                shuffle(self.files)
+            self._create_chunks()
  
     def _create_chunks(self):
         """
         Pre-chunks all binaries and stores them in memory.
         """
-        for file_path in self.files:
-            print(f"Processing {file_path.name}...")
+        #progress = tqdm.tqdm(range(len(self.files)))
+        for file_path in tqdm.tqdm(self.files):
+            #print(f"Processing {file_path.name}...")
             
             # Extract boundaries from the unstripped binary
             boundaries = get_function_boundaries_from_elf(file_path)
@@ -163,7 +186,7 @@ class BinaryChunkDataset(Dataset):
                                 stripped_file_bytes = section.data()
                 except Exception as e:
                     raise e
-
+            #progress.iter()
             
             if not stripped_file_bytes or not boundaries:
                 print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
@@ -186,11 +209,21 @@ class BinaryChunkDataset(Dataset):
                 chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
                 self.chunks.append((chunk_tensor, chunk_labels))
 
-            print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
-
+            #print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
+        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size} chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
  
     def __len__(self) -> int:
         return len(self.chunks)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         return self.chunks[idx]
+
+    def save(self, result_path: Path):
+        try:
+            with open(result_path,"wb") as f:
+                pickle.dump([self.data_path, self.chunk_size, self.stride, self.onlyDotText, self.files],f)
+            with open(str(result_path) + ".np","wb") as f:
+                numpy.save(f,self.chunks)
+        except Exception as e:
+            print(e)
+            raise e

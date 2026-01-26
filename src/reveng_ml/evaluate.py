@@ -66,7 +66,7 @@ class Evaluator:
         xdaResultPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
         xdaExecutablePath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/runInferXDA.sh"))
         with open(xdaDatasetInfoPath,"wb") as f:
-            pickle.dump([os.path.abspath(self.dataset.data_dir),self.dataset.chunk_size,self.dataset.stride],f,0)
+            pickle.dump([os.path.abspath(self.dataset.data_path),self.dataset.chunk_size,self.dataset.stride],f,0)
         
         try:
             subprocessResult=subprocess.run(["./src/reveng_ml/ComparativeEvaluation/runInferXDA.sh", str(xdaDatasetInfoPath),str(xdaResultPath)],shell=False,check=True,capture_output=True)

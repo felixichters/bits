@@ -60,7 +60,7 @@ class Trainer:
             
             # Wrap with tqdm() to show progress_bar
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=False)
-
+            
             for i, (batch_data, batch_labels) in enumerate(progress_bar):
                 batch_labels = batch_labels.to(self.device)
                 batch_data = batch_data.to(self.device)
