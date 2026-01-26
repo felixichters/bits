@@ -87,6 +87,7 @@ class Trainer:
 
             avg_loss = total_loss / len(self.loader)
             epoch_time = time.time() - epoch_start_time
+            self.save_model("reveng_model_epoch" + str(epoch+1) + ".bin")
             print(f"--- Epoch {epoch + 1} Summary ---")
             print(f"Average Loss: {avg_loss:.4f}")
             print(f"Epoch Time: {epoch_time:.2f} seconds")
