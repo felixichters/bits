@@ -100,7 +100,7 @@ class BinaryChunkDataset(Dataset):
     This dataset reads binary files from a directory, extracts function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_dir: Path, chunk_size=512, stride=256, randomizeFileOrder=True):
+    def __init__(self, data_dir: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True):
         """
         Args:
             data_dir (Path): Directory containing the *unstripped* binary files.
@@ -111,7 +111,8 @@ class BinaryChunkDataset(Dataset):
         self.chunk_size = chunk_size
         self.stride = stride
         self.chunks: list[tuple[torch.Tensor, torch.Tensor]] = []
-
+        self.onlyDotText = onlyIncludeCodeSegment
+        
         self.files = []
         print("Scanning input files for dataset in directory:", data_dir)
         for f in data_dir.iterdir():
@@ -131,6 +132,7 @@ class BinaryChunkDataset(Dataset):
             shuffle(self.files)
         self._create_chunks()
 
+ 
     def _create_chunks(self):
         """
         Pre-chunks all binaries and stores them in memory.
@@ -142,11 +144,26 @@ class BinaryChunkDataset(Dataset):
             boundaries = get_function_boundaries_from_elf(file_path)
             
             # Strip debug sections and read stripped bytes
-            with TemporaryDirectory() as tmpdir:
-                stripped_path = Path(tmpdir) / "stripped_binary"
-                strip_elf_debug_sections(file_path, stripped_path)
-                with open(stripped_path, 'rb') as f:
-                    stripped_file_bytes = f.read()
+            if self.onlyDotText == False:
+                with TemporaryDirectory() as tmpdir:
+                    stripped_path = Path(tmpdir) / "stripped_binary"
+                    strip_elf_debug_sections(file_path, stripped_path)
+                    with open(stripped_path, 'rb') as f:
+                        stripped_file_bytes = f.read()
+            else:
+                stripped_file_bytes = b''
+                try:
+                    with open(file_path, 'rb') as f:
+                        file_bytes = f.read()
+                    with BytesIO(file_bytes) as stream:
+                        elffile = ELFFile(stream)
+                        for section in elffile.iter_sections():
+                            if section.name.startswith(".text"):
+                                textSectionOffset = section.header['sh_offset']
+                                stripped_file_bytes = section.data()
+                except Exception as e:
+                    raise e
+
             
             if not stripped_file_bytes or not boundaries:
                 print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
@@ -155,10 +172,10 @@ class BinaryChunkDataset(Dataset):
             # Create a label vector for the entire file
             labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
             for (offset, size) in boundaries.items():
-                if offset < len(labels):
-                    labels[offset] = 1 # Mark 'B-FUNC' (Beginning of a function)
-                if offset + size - 1 < len(labels):
-                    labels[offset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
+                if offset - textSectionOffset < len(labels):
+                    labels[offset - textSectionOffset] = 1 # Mark 'B-FUNC' (Beginning of a function)
+                if offset - textSectionOffset + size - 1 < len(labels):
+                    labels[offset - textSectionOffset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
 
             # Create overlapping chunks from the unstripped bytes
             # TODO: maybe a better approach could be used here?
@@ -171,6 +188,7 @@ class BinaryChunkDataset(Dataset):
 
             print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
 
+ 
     def __len__(self) -> int:
         return len(self.chunks)
 

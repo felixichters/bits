@@ -147,12 +147,20 @@ class XDAChunkDataset(Dataset):
             # Extract boundaries from the unstripped binary
             boundaries = get_function_boundaries_from_elf(file_path)
             
-            # Strip debug sections and read stripped bytes
-            with TemporaryDirectory() as tmpdir:
-                stripped_path = Path(tmpdir) / "stripped_binary"
-                strip_elf_debug_sections(file_path, stripped_path)
-                with open(stripped_path, 'rb') as f:
-                    stripped_file_bytes = f.read()
+            
+            stripped_file_bytes = b''
+            try:
+                with open(file_path, 'rb') as f:
+                    file_bytes = f.read()
+                with BytesIO(file_bytes) as stream:
+                    elffile = ELFFile(stream)
+                    for section in elffile.iter_sections():
+                        if section.name.startswith(".text"):
+                            textSectionOffset = section.header['sh_offset']
+                            stripped_file_bytes = section.data()
+            except Exception as e:
+                raise e
+
             
             if not stripped_file_bytes or not boundaries:
                 print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
@@ -161,10 +169,10 @@ class XDAChunkDataset(Dataset):
             # Create a label vector for the entire file
             labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
             for (offset, size) in boundaries.items():
-                if offset < len(labels):
-                    labels[offset] = 1 # Mark 'B-FUNC' (Beginning of a function)
-                if offset + size - 1 < len(labels):
-                    labels[offset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
+                if offset - textSectionOffset < len(labels):
+                    labels[offset - textSectionOffset] = 1 # Mark 'B-FUNC' (Beginning of a function)
+                if offset - textSectionOffset + size - 1 < len(labels):
+                    labels[offset - textSectionOffset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
 
             # Create overlapping chunks from the unstripped bytes
             # TODO: maybe a better approach could be used here?
