@@ -14,7 +14,7 @@ app = typer.Typer(help="Function boundary detection model training & evaluation"
 
 @app.command()
 def create_dataset(
-    data_path: Path = typer.Option("data/train", "--input-dir", "-d" , help="Input Directory; all files inside will be included in the resulting dataset file"),
+    data_path: Path = typer.Option("data/train/default", "--input-dir", "-d" , help="Input Directory; all files inside will be included in the resulting dataset file"),
     chunk_size: int = typer.Option(510, "--chunk-size", "-c" , help="Size Of Chunk to be fed into model at a time"),
     stride: int = typer.Option(255, "--stride", "-s", help="Amount of stride (overlap with previous and following chunk)"),
     onlyDotText: bool = typer.Option(True, "--only-text", "-t", help="Wether the whole binary or only the .text section get used"),
@@ -43,8 +43,8 @@ def create_dataset(
 
 @app.command()
 def train(
-    data_path: Path = typer.Option("data/default.dataset", "--data-path", "-d", help="Training data input directory or dataset file-path"),
-    model_dir: Path = typer.Option("models", "--model-dir", "-o", help="Model output directory"),
+    data_path: Path = typer.Option("data/train/default.dataset", "--data-path", "-d", help="Training data input directory or dataset file-path"),
+    model_dir: Path = typer.Option("models/default", "--model-dir", "-o", help="Model output directory"),
     epochs: int = typer.Option(3, "--epochs", "-e", help="Number of training epochs"),
     batch_size: int = typer.Option(32, "--batch-size", "-b", help="Training batch size"),
     learning_rate: float = typer.Option(5e-5, "--lr", "-l", help="Learning rate"),
@@ -79,8 +79,8 @@ def train(
 
 @app.command()
 def evaluate(
-    model_path: Path = typer.Option("models/reveng_boundary_detector_final.bin", "--model-path", "-m", help="Trained model path"),
-    data_path: Path = typer.Option("data/test/", "--data-path", "-d", help="Test data directory or test dataset file-path"),
+    model_path: Path = typer.Option("models/default/reveng_boundary_detector_final.bin", "--model-path", "-m", help="Trained model path"),
+    data_path: Path = typer.Option("data/test/default.dataset", "--data-path", "-d", help="Test data directory or test dataset file-path"),
     batch_size: int = typer.Option(32, "--batch-size", "-b", help="Evaluation batch size"),
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),

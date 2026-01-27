@@ -8,7 +8,7 @@ import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-
+import os
 from reveng_ml.utils import get_pytorch_device
 
 
@@ -102,6 +102,7 @@ class Trainer:
 
     def save_model(self, filename: str = "reveng_model.bin"):
         """Saves the model state"""
+        os.makedirs(self.model_dir, exist_ok=True)
         save_path = self.model_dir / filename
         torch.save(self.model.state_dict(), save_path)
         print(f"Model saved to {save_path}")
