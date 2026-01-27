@@ -60,7 +60,7 @@ class Evaluator:
 
         print("Evaluation complete.")
 
-
+        
         print("Starting xda evaluation...")
         xdaDatasetInfoPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/dataset.info"))
         xdaResultPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
@@ -86,7 +86,7 @@ class Evaluator:
             target_names=['O', 'B-FUNC', 'E-FUNC'],
             zero_division=0
             )
-
+        
 
         # Print a classification report
         report = classification_report(

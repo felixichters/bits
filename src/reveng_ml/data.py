@@ -15,6 +15,7 @@ import os
 import pickle
 import tqdm
 import numpy 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def strip_elf_debug_sections(file_path: Path, output_path: Path):
     """
@@ -155,62 +156,86 @@ class BinaryChunkDataset(Dataset):
                 shuffle(self.files)
             self._create_chunks()
  
+    def _create_chunks_for_file_threaded(self, file_path):
+ 
+
+        local_chunks = []
+            
+        # Extract boundaries from the unstripped binary
+        boundaries = get_function_boundaries_from_elf(file_path)
+        
+        # Strip debug sections and read stripped bytes
+        textSectionOffset = - 1
+        if self.onlyDotText == False:
+            with TemporaryDirectory() as tmpdir:
+                stripped_path = Path(tmpdir) / "stripped_binary"
+                strip_elf_debug_sections(file_path, stripped_path)
+                with open(stripped_path, 'rb') as f:
+                    stripped_file_bytes = f.read()
+        else:
+            stripped_file_bytes = b''
+            
+            try:
+                with open(file_path, 'rb') as f:
+                    file_bytes = f.read()
+                with BytesIO(file_bytes) as stream:
+                    elffile = ELFFile(stream)
+                    for section in elffile.iter_sections():
+                        if section.name.startswith(".text"):
+                            textSectionOffset = section.header['sh_offset']
+                            stripped_file_bytes = section.data()
+                            break
+            except Exception as e:
+                raise e
+        
+        assert(textSectionOffset >= 0)
+        
+        if not stripped_file_bytes or not boundaries:
+            print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
+            return []
+
+        # Create a label vector for the entire file
+        labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
+        for (offset, size) in boundaries.items():
+            if offset - textSectionOffset < len(labels):
+                labels[offset - textSectionOffset] = 1 # Mark 'B-FUNC' (Beginning of a function)
+            if offset - textSectionOffset + size - 1 < len(labels):
+                labels[offset - textSectionOffset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
+
+        # Create overlapping chunks from the unstripped bytes
+        # TODO: maybe a better approach could be used here?
+        for i in range(0, len(stripped_file_bytes) - self.chunk_size + 1, self.stride):
+            chunk_bytes_raw = stripped_file_bytes[i:i + self.chunk_size]
+            chunk_labels = labels[i:i + self.chunk_size]
+            
+            chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
+            self.chunks.append((chunk_tensor, chunk_labels))
+        
+        #print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
+        
+        return local_chunks
+            
+            
     def _create_chunks(self):
         """
         Pre-chunks all binaries and stores them in memory.
         """
-        #progress = tqdm.tqdm(range(len(self.files)))
-        for file_path in tqdm.tqdm(self.files):
-            #print(f"Processing {file_path.name}...")
+        import multiprocessing
+        
+        
+        self.chunks = []
+
+        with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()*9) as executor:
+            futures = [
+                executor.submit(self._create_chunks_for_file_threaded, file_path)
+                for file_path in self.files
+            ]
+
+            for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
+                self.chunks.extend(future.result())
+        
             
-            # Extract boundaries from the unstripped binary
-            boundaries = get_function_boundaries_from_elf(file_path)
-            
-            # Strip debug sections and read stripped bytes
-            if self.onlyDotText == False:
-                with TemporaryDirectory() as tmpdir:
-                    stripped_path = Path(tmpdir) / "stripped_binary"
-                    strip_elf_debug_sections(file_path, stripped_path)
-                    with open(stripped_path, 'rb') as f:
-                        stripped_file_bytes = f.read()
-            else:
-                stripped_file_bytes = b''
-                try:
-                    with open(file_path, 'rb') as f:
-                        file_bytes = f.read()
-                    with BytesIO(file_bytes) as stream:
-                        elffile = ELFFile(stream)
-                        for section in elffile.iter_sections():
-                            if section.name.startswith(".text"):
-                                textSectionOffset = section.header['sh_offset']
-                                stripped_file_bytes = section.data()
-                except Exception as e:
-                    raise e
-            #progress.iter()
-            
-            if not stripped_file_bytes or not boundaries:
-                print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
-                continue
-
-            # Create a label vector for the entire file
-            labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
-            for (offset, size) in boundaries.items():
-                if offset - textSectionOffset < len(labels):
-                    labels[offset - textSectionOffset] = 1 # Mark 'B-FUNC' (Beginning of a function)
-                if offset - textSectionOffset + size - 1 < len(labels):
-                    labels[offset - textSectionOffset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
-
-            # Create overlapping chunks from the unstripped bytes
-            # TODO: maybe a better approach could be used here?
-            for i in range(0, len(stripped_file_bytes) - self.chunk_size + 1, self.stride):
-                chunk_bytes_raw = stripped_file_bytes[i:i + self.chunk_size]
-                chunk_labels = labels[i:i + self.chunk_size]
-
-                chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
-                self.chunks.append((chunk_tensor, chunk_labels))
-
-            #print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
-        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size} chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
+        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
  
     def __len__(self) -> int:
         return len(self.chunks)

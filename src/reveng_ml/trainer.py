@@ -62,6 +62,12 @@ class Trainer:
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=False)
             
             for i, (batch_data, batch_labels) in enumerate(progress_bar):
+                
+                #no attention mask needed since currently all inputs are completely filled and not padded
+                #att_msk = torch.zeros(batch_data.shape[0],512,dtype=batch_data.dtype)
+                #att_msk[:batch_data.size(0),:batch_data.size(1)] = torch.ones_like(batch_data)
+                #att_msk = att_msk.to(self.device)
+
                 batch_labels = batch_labels.to(self.device)
                 batch_data = batch_data.to(self.device)
 
