@@ -115,7 +115,10 @@ def evaluate(
     # Load trained model
     print(f"Loading model from {model_path}...")
     model = get_model()
-    model.load_state_dict(torch.load(model_path))
+    if torch.cuda.is_available():
+        model.load_state_dict(torch.load(model_path))
+    else:
+        model.load_state_dict(torch.load(model_path,map_location=torch.device('cpu')))
 
     # Evaluate
     evaluator = Evaluator(model, dataset, batch_size=batch_size)
