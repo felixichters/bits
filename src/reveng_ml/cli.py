@@ -67,7 +67,6 @@ def train(
 
     print("Initializing model...")
     model = get_model()
-
     # Train
     trainer = Trainer(model, dataset, learning_rate=learning_rate, batch_size=batch_size, model_dir=model_dir, class_weight_boundary=class_weight_boundary)
     trainer.train(epochs=epochs)
@@ -105,8 +104,7 @@ def evaluate(
             raise typer.Exit(code=1)
         """
     
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False)
-    
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False, for_evaluation=True)
     if not dataset:
         print("Warning: The test dataset is empty. No evaluation will be performed.")
         raise typer.Exit()

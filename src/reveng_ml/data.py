@@ -105,12 +105,13 @@ class BinaryChunkDataset(Dataset):
     This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True):
+    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True, for_evaluation=False):
         """
         Args:
             data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.
             chunk_size (int): The size of each data chunk.
             stride (int): The step size to move when creating overlapping chunks.
+            for_evaluation (bool): Use non-overlapping Chunks
         """
         if data_path.is_file():
             try:
@@ -129,7 +130,7 @@ class BinaryChunkDataset(Dataset):
         else:
             self.data_path = data_path
             self.chunk_size = chunk_size
-            self.stride = stride
+            self.stride = chunk_size if for_evaluation else stride
             self.chunks: list[tuple[torch.Tensor, torch.Tensor]] = []
             self.onlyDotText = onlyIncludeCodeSegment
             
@@ -165,13 +166,16 @@ class BinaryChunkDataset(Dataset):
         boundaries = get_function_boundaries_from_elf(file_path)
         
         # Strip debug sections and read stripped bytes
-        textSectionOffset = - 1
+        textSectionOffset = 0
+        textSectionSize = 0
+
         if self.onlyDotText == False:
             with TemporaryDirectory() as tmpdir:
                 stripped_path = Path(tmpdir) / "stripped_binary"
                 strip_elf_debug_sections(file_path, stripped_path)
                 with open(stripped_path, 'rb') as f:
                     stripped_file_bytes = f.read()
+                textSectionSize = len(stripped_file_bytes)
         else:
             stripped_file_bytes = b''
             
@@ -183,24 +187,37 @@ class BinaryChunkDataset(Dataset):
                     for section in elffile.iter_sections():
                         if section.name.startswith(".text"):
                             textSectionOffset = section.header['sh_offset']
+                            textSectionSize = section.header['sh_size']
                             stripped_file_bytes = section.data()
                             break
             except Exception as e:
                 raise e
         
-        assert(textSectionOffset >= 0)
-        
-        if not stripped_file_bytes or not boundaries:
-            print(f"Skipping {file_path.name}: No valid boundaries or bytes found.")
+        if not stripped_file_bytes:
+            print(f"Skipping {file_path.name}: No .text section or bytes found.")
             return []
-
+    
+        if not boundaries:
+            print(f"Skipping {file_path.name}: No valid boundaries found.")
+            return []
+        
         # Create a label vector for the entire file
         labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
+        
+        # Only label boundaries that fall within our data range
         for (offset, size) in boundaries.items():
-            if offset - textSectionOffset < len(labels):
-                labels[offset - textSectionOffset] = 1 # Mark 'B-FUNC' (Beginning of a function)
-            if offset - textSectionOffset + size - 1 < len(labels):
-                labels[offset - textSectionOffset + size - 1] = 2 # Mark 'E-FUNC' (End of a function)
+        # Check if function starts within our section
+            if textSectionOffset <= offset < textSectionOffset + textSectionSize:
+                local_offset = offset - textSectionOffset
+                if local_offset < len(labels):
+                    labels[local_offset] = 1  # B-FUNC
+        
+                # Check if function end is within our section
+                end_offset = offset + size - 1
+                if end_offset < textSectionOffset + textSectionSize:
+                    local_end = end_offset - textSectionOffset
+                    if local_end < len(labels):
+                        labels[local_end] = 2  # E-FUNC
 
         # Create overlapping chunks from the unstripped bytes
         # TODO: maybe a better approach could be used here?
@@ -224,7 +241,7 @@ class BinaryChunkDataset(Dataset):
         
         
         self.chunks = []
-
+        
         with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()*9) as executor:
             futures = [
                 executor.submit(self._create_chunks_for_file_threaded, file_path)

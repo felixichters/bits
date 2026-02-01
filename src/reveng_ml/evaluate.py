@@ -5,6 +5,7 @@ import os.path
 import torch
 from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader, Dataset
+from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import pickle
 import subprocess
@@ -96,9 +97,28 @@ class Evaluator:
             target_names=['O', 'B-FUNC', 'E-FUNC'],
             zero_division=0
         )
-        
+
+        # Calculate class distribution
+        total = len(all_labels)
+        o_count = sum(1 for l in all_labels if l == 0)
+        b_count = sum(1 for l in all_labels if l == 1)
+        e_count = sum(1 for l in all_labels if l == 2)
+
         print("\n--- Classification Report own model ---")
-        print(report)
+        print(f"Class Distribution:")
+        print(f"  O (non-boundary): {o_count:,} ({100*o_count/total:.2f}%)")
+        print(f"  B-FUNC: {b_count:,} ({100*b_count/total:.2f}%)")
+        print(f"  E-FUNC: {e_count:,} ({100*e_count/total:.2f}%)")
+        print(f"\n{report}")
+
+        # Show confusion matrix for boundary classes
+        cm = confusion_matrix(all_labels, all_preds)
+        print("Confusion Matrix:")
+        print("              Predicted")
+        print("              O      B-FUNC  E-FUNC")
+        print(f"Actual O      {cm[0][0]:<7} {cm[0][1]:<7} {cm[0][2]:<7}")
+        print(f"       B-FUNC {cm[1][0]:<7} {cm[1][1]:<7} {cm[1][2]:<7}")
+        print(f"       E-FUNC {cm[2][0]:<7} {cm[2][1]:<7} {cm[2][2]:<7}")
         print("-----------------------------\n")
 
         print("\n--- Classification Report XDA ---")
