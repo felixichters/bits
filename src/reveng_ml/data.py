@@ -226,7 +226,7 @@ class BinaryChunkDataset(Dataset):
             chunk_labels = labels[i:i + self.chunk_size]
             
             chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
-            self.chunks.append((chunk_tensor, chunk_labels))
+            local_chunks.append((chunk_tensor, chunk_labels))
         
         #print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
         
