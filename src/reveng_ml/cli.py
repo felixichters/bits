@@ -81,7 +81,7 @@ def evaluate(
     model_path: Path = typer.Option("models/default/reveng_boundary_detector_final.bin", "--model-path", "-m", help="Trained model path"),
     data_path: Path = typer.Option("data/test/default.dataset", "--data-path", "-d", help="Test data directory or test dataset file-path"),
     batch_size: int = typer.Option(32, "--batch-size", "-b", help="Evaluation batch size"),
-    chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
+    chunk_size: int = typer.Option(512, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
 ):
     """

@@ -45,8 +45,8 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
     Returns:
         A dictionary mapping function start file offsets to their sizes.
     """
+
     boundaries: dict[int, int] = {}
-    file_bytes = b''
     try:
         with open(file_path, 'rb') as f:
             file_bytes = f.read()
@@ -54,8 +54,6 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
         with BytesIO(file_bytes) as stream:
             elffile = ELFFile(stream)
 
-            # Build a map from virtual address to file offset from program segments
-            # This is needed because function addresses are given in virtual addresses
             va_to_offset_map = []
             for segment in elffile.iter_segments():
                 if segment['p_type'] == 'PT_LOAD':
@@ -65,31 +63,42 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
                         'offset': segment['p_offset']
                     })
 
-            # Access .eh_frame section
-            dwarf_info = elffile.get_dwarf_info()
-            if not dwarf_info:
-                print(f"No DWARF info found in {file_path}, cannot get CFI entries.")
-                return {}
-
-            cfi_entries = dwarf_info.EH_CFI_entries()
-            for entry in cfi_entries:
-                # Find all FDE (Frame Descriptor Entries) which correspond to functions
-                if not isinstance(entry, callframe.FDE):
-                    continue
-                
-                func_va = entry.header['initial_location']
-                func_size = entry.header['address_range']
-
-                # Map virtual address to file offset
-                file_offset = None
+            def va_to_file_offset(va):
                 for mapping in va_to_offset_map:
-                    if mapping['vaddr_start'] <= func_va < mapping['vaddr_end']:
-                        offset_in_segment = func_va - mapping['vaddr_start']
-                        file_offset = mapping['offset'] + offset_in_segment
-                        break
-                
-                if file_offset is not None and 0 <= file_offset < len(file_bytes):
-                    boundaries[file_offset] = func_size
+                    if mapping['vaddr_start'] <= va < mapping['vaddr_end']:
+                        return mapping['offset'] + (va - mapping['vaddr_start'])
+                return None
+
+            # .symtab
+            symtab = elffile.get_section_by_name('.symtab')
+            if symtab:
+                for sym in symtab.iter_symbols():
+                    if (sym['st_info']['type'] == 'STT_FUNC'
+                            and sym['st_size'] > 0
+                            and sym['st_value'] != 0):
+                        file_offset = va_to_file_offset(sym['st_value'])
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
+                            if file_offset not in boundaries or sym['st_size'] > boundaries[file_offset]:
+                                boundaries[file_offset] = sym['st_size']
+
+            # .eh_frame fallback
+            if not boundaries:
+                dwarf_info = elffile.get_dwarf_info()
+                if dwarf_info:
+                    for entry in dwarf_info.EH_CFI_entries():
+                        if not isinstance(entry, callframe.FDE):
+                            continue
+                        func_va = entry.header['initial_location']
+                        func_size = entry.header['address_range']
+                        if func_size == 0:
+                            continue
+                        file_offset = va_to_file_offset(func_va)
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
+                            if file_offset not in boundaries or func_size > boundaries[file_offset]:
+                                boundaries[file_offset] = func_size
+
+            if not boundaries:
+                print(f"Warning: No function symbols found in {file_path.name} via .symtab or .eh_frame")
 
             return boundaries
 
@@ -205,19 +214,21 @@ class BinaryChunkDataset(Dataset):
         labels = torch.zeros(len(stripped_file_bytes), dtype=torch.long)
         
         # Only label boundaries that fall within our data range
+        # Mark all E-FUNC endings first
         for (offset, size) in boundaries.items():
-        # Check if function starts within our section
+            end_offset = offset + size - 1
+            if textSectionOffset <= end_offset < textSectionOffset + textSectionSize:
+                local_end = end_offset - textSectionOffset
+                if local_end < len(labels):
+                    labels[local_end] = 2  # E-FUNC
+
+        # Mark all B-FUNC starts second
+        for (offset, size) in boundaries.items():
             if textSectionOffset <= offset < textSectionOffset + textSectionSize:
                 local_offset = offset - textSectionOffset
                 if local_offset < len(labels):
                     labels[local_offset] = 1  # B-FUNC
         
-                # Check if function end is within our section
-                end_offset = offset + size - 1
-                if end_offset < textSectionOffset + textSectionSize:
-                    local_end = end_offset - textSectionOffset
-                    if local_end < len(labels):
-                        labels[local_end] = 2  # E-FUNC
 
         # Create overlapping chunks from the unstripped bytes
         # TODO: maybe a better approach could be used here?
