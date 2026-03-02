@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import os
 from reveng_ml.utils import get_pytorch_device
+from torch.nn.utils import clip_grad_norm_
 
 
 class Trainer:
@@ -86,6 +87,7 @@ class Trainer:
 
                 # Backward pass and optimization
                 loss.backward()
+                clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
 
                 # Add current loss behind progressbar

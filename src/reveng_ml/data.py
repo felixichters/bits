@@ -194,7 +194,7 @@ class BinaryChunkDataset(Dataset):
                 with BytesIO(file_bytes) as stream:
                     elffile = ELFFile(stream)
                     for section in elffile.iter_sections():
-                        if section.name.startswith(".text"):
+                        if section.name == ".text":
                             textSectionOffset = section.header['sh_offset']
                             textSectionSize = section.header['sh_size']
                             stripped_file_bytes = section.data()
@@ -230,14 +230,28 @@ class BinaryChunkDataset(Dataset):
                     labels[local_offset] = 1  # B-FUNC
         
 
+        # Pad files shorter than chunk_size so they contribute one full chunk
+        if len(stripped_file_bytes) < self.chunk_size:
+            pad_len = self.chunk_size - len(stripped_file_bytes)
+            stripped_file_bytes = stripped_file_bytes + bytes(pad_len)
+            labels = torch.cat([labels, torch.zeros(pad_len, dtype=torch.long)])
+
         # Create overlapping chunks from the unstripped bytes
-        # TODO: maybe a better approach could be used here?
         for i in range(0, len(stripped_file_bytes) - self.chunk_size + 1, self.stride):
             chunk_bytes_raw = stripped_file_bytes[i:i + self.chunk_size]
             chunk_labels = labels[i:i + self.chunk_size]
-            
             chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
             local_chunks.append((chunk_tensor, chunk_labels))
+
+        # Emit one final chunk anchored at the end
+        if len(stripped_file_bytes) > self.chunk_size:
+            last_aligned_start = ((len(stripped_file_bytes) - self.chunk_size) // self.stride) * self.stride
+            final_start = len(stripped_file_bytes) - self.chunk_size
+            if final_start > last_aligned_start:
+                chunk_bytes_raw = stripped_file_bytes[final_start:]
+                chunk_labels = labels[final_start:]
+                chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
+                local_chunks.append((chunk_tensor, chunk_labels))
         
         #print(f"Chunked {file_path.name} into {len(stripped_file_bytes) // self.stride} chunks.")
         
