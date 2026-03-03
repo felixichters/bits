@@ -112,7 +112,7 @@ class Evaluator:
         print(f"\n{report}")
 
         # Show confusion matrix for boundary classes
-        cm = confusion_matrix(all_labels, all_preds)
+        cm = confusion_matrix(all_labels, all_preds, labels=[0, 1, 2])
         print("Confusion Matrix:")
         print("              Predicted")
         print("              O      B-FUNC  E-FUNC")

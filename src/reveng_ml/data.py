@@ -131,6 +131,12 @@ class BinaryChunkDataset(Dataset):
                     self.stride = dataset[2]
                     self.onlyDotText = dataset[3]
                     self.files = dataset[4]
+                if for_evaluation and self.stride != self.chunk_size:
+                    raise ValueError(
+                        f"Dataset file '{data_path}' was created with stride={self.stride} (overlapping), "
+                        f"but for_evaluation=True requires non-overlapping chunks (stride=chunk_size={self.chunk_size}). "
+                        f"Pass the source binary directory '{self.data_path}' instead."
+                    )
                 with open(str(data_path) + ".np","rb") as f:
                     self.chunks = [(torch.tensor(label_data_pair[0]),torch.tensor(label_data_pair[1])) for label_data_pair in numpy.load(f)]
             except Exception as e:
@@ -243,8 +249,8 @@ class BinaryChunkDataset(Dataset):
             chunk_tensor = torch.tensor([b for b in chunk_bytes_raw], dtype=torch.long)
             local_chunks.append((chunk_tensor, chunk_labels))
 
-        # Emit one final chunk anchored at the end
-        if len(stripped_file_bytes) > self.chunk_size:
+        # Emit one final chunk anchored at the end (skip in non-overlapping mode to avoid double-counting)
+        if len(stripped_file_bytes) > self.chunk_size and self.stride < self.chunk_size:
             last_aligned_start = ((len(stripped_file_bytes) - self.chunk_size) // self.stride) * self.stride
             final_start = len(stripped_file_bytes) - self.chunk_size
             if final_start > last_aligned_start:

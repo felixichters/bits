@@ -9,6 +9,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import os
+from transformers import get_linear_schedule_with_warmup
 from reveng_ml.utils import get_pytorch_device
 from torch.nn.utils import clip_grad_norm_
 
@@ -44,6 +45,7 @@ class Trainer:
         self.model_dir = model_dir
         self.model_dir.mkdir(exist_ok=True)
         self.class_weights = torch.tensor([1.0, class_weight_boundary, class_weight_boundary]).to(self.device)
+        self.loss_fct = torch.nn.CrossEntropyLoss(weight=self.class_weights)
 
     def train(self, epochs: int = 3):
         """
@@ -53,7 +55,16 @@ class Trainer:
             epochs (int): Epoch count
         """
         self.model.train()
-        
+
+        total_steps = len(self.loader) * epochs
+        warmup_steps = max(1, int(0.1 * total_steps))
+        scheduler = get_linear_schedule_with_warmup(
+            self.optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_steps,
+        )
+        print(f"LR schedule: linear warmup for {warmup_steps} steps, linear decay over {total_steps} total steps.")
+
         for epoch in range(epochs):
             print(f"--- Starting Epoch {epoch + 1}/{epochs} ---")
             epoch_start_time = time.time()
@@ -78,10 +89,9 @@ class Trainer:
                 # Forward pass
                 outputs = self.model(input_ids=batch_data)
                 
-                # Compute loss manually with class weights
+                # Compute loss with class weights
                 logits = outputs.logits
-                loss_fct = torch.nn.CrossEntropyLoss(weight=self.class_weights)
-                loss = loss_fct(logits.view(-1, 3), batch_labels.view(-1))
+                loss = self.loss_fct(logits.view(-1, 3), batch_labels.view(-1))
 
                 total_loss += loss.item()
 
@@ -89,9 +99,10 @@ class Trainer:
                 loss.backward()
                 clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
+                scheduler.step()
 
-                # Add current loss behind progressbar
-                progress_bar.set_postfix(loss=f"{loss.item():.4f}")
+                current_lr = scheduler.get_last_lr()[0]
+                progress_bar.set_postfix(loss=f"{loss.item():.4f}", lr=f"{current_lr:.2e}")
 
             avg_loss = total_loss / len(self.loader)
             epoch_time = time.time() - epoch_start_time
