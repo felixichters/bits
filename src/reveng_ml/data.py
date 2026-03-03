@@ -45,7 +45,7 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
     Returns:
         A dictionary mapping function start file offsets to their sizes.
     """
-
+    
     boundaries: dict[int, int] = {}
     try:
         with open(file_path, 'rb') as f:
@@ -280,9 +280,11 @@ class BinaryChunkDataset(Dataset):
             ]
 
             for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
-                self.chunks.extend(future.result())
-        
-            
+                try:
+                    self.chunks.extend(future.result())
+                except Exception as e:
+                    print(f"Warning: skipping file due to error: {e}")
+                    
         print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
  
     def __len__(self) -> int:
