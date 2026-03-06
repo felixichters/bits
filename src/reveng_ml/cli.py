@@ -50,7 +50,7 @@ def train(
     learning_rate: float = typer.Option(5e-5, "--lr", "-l", help="Learning rate"),
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
-    class_weight_boundary: float = typer.Option(100.0, "--class-weight", "-w", help="Weight for boundary classes (B-FUNC, E-FUNC). Higher = more focus on boundaries"),
+    class_weight_boundary: float = typer.Option(None, "--class-weight", "-w", help="Manual weight for boundary classes (B-FUNC, E-FUNC). If not set, weights are computed dynamically from label distribution"),
 ):
     """
     Train a new function boundary detection model.

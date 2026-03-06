@@ -287,6 +287,14 @@ class BinaryChunkDataset(Dataset):
                     
         print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
  
+    def get_label_counts(self) -> torch.Tensor:
+        """Returns a tensor of per-class label counts [O, B-FUNC, E-FUNC]."""
+        counts = torch.zeros(3, dtype=torch.long)
+        for _, labels in self.chunks:
+            for c in range(3):
+                counts[c] += (labels == c).sum()
+        return counts
+
     def __len__(self) -> int:
         return len(self.chunks)
 

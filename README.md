@@ -32,14 +32,14 @@ Train using training data in `data/train`
 
 uv run python -m reveng_ml train
 # Or with custom config
-uv run python -m reveng_ml train --epochs 3 --batch-size 32 --lr 0.00005 --data-dir data/train --model-dir model --class-weight 100
+uv run python -m reveng_ml train --epochs 3 --batch-size 32 --lr 0.00005 --data-path data/train --model-dir model --class-weight 100
 ```
 
 Evaluate using test data in `data/test`
 ```bash
 uv run python -m reveng_ml evaluate
 # Or with custom config
-uv run python -m reveng_ml evaluate --batch-size 32 --data-dir data/train --model-path model/trained_model.bin
+uv run python -m reveng_ml evaluate --batch-size 32 --data-path data/train --model-path model/trained_model.bin
 ```
 
 ### Unit tests

@@ -18,13 +18,13 @@ class Trainer:
     """Trains a model using a dataset"""
 
     def __init__(
-        self, 
-        model: torch.nn.Module, 
+        self,
+        model: torch.nn.Module,
         dataset: Dataset,
-        learning_rate: float = 5e-5, 
+        learning_rate: float = 5e-5,
         batch_size: int = 32,
         model_dir: Path = Path('./models'),
-        class_weight_boundary: float = 100.00
+        class_weight_boundary: float | None = None
     ):
         """
         Create a new Trainer class.
@@ -35,7 +35,8 @@ class Trainer:
             learning_rate (float): Optimizer learning rate
             batch_size (int): Samples per batch
             model_dir (Path): Model output directory
-            class_weight_boundary (float): Weight for boundary classes (B-FUNC, E-FUNC)
+            class_weight_boundary (float | None): Weight for boundary classes (B-FUNC, E-FUNC).
+                If None, weights are computed dynamically from the dataset using inverse frequency.
         """
         self.device = get_pytorch_device()
         self.model = model.to(self.device)
@@ -44,7 +45,18 @@ class Trainer:
         self.optimizer = AdamW(self.model.parameters(), lr=learning_rate)
         self.model_dir = model_dir
         self.model_dir.mkdir(exist_ok=True)
-        self.class_weights = torch.tensor([1.0, class_weight_boundary, class_weight_boundary]).to(self.device)
+
+        if class_weight_boundary is not None:
+            self.class_weights = torch.tensor([1.0, class_weight_boundary, class_weight_boundary]).to(self.device)
+            print(f"Using manual class weights: {self.class_weights.tolist()}")
+        else:
+            counts = dataset.get_label_counts()
+            total = counts.sum().float()
+            num_classes = 3
+            self.class_weights = (total / (num_classes * counts.float())).to(self.device)
+            print(f"Label distribution: O={counts[0]:,}, B-FUNC={counts[1]:,}, E-FUNC={counts[2]:,}")
+            print(f"Using dynamic class weights: {[f'{w:.2f}' for w in self.class_weights.tolist()]}")
+
         self.loss_fct = torch.nn.CrossEntropyLoss(weight=self.class_weights)
 
     def train(self, epochs: int = 3):
