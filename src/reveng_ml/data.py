@@ -5,7 +5,8 @@ from pathlib import Path
 from io import BytesIO
 import subprocess
 from tempfile import TemporaryDirectory
-from random import shuffle
+from random import shuffle, Random
+import shutil
 import torch
 from torch.utils.data import Dataset
 from elftools.elf.elffile import ELFFile
@@ -14,8 +15,62 @@ from elftools.dwarf import callframe
 import os
 import pickle
 import tqdm
-import numpy 
+import numpy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+def split_dataset_files(
+    src_dir: Path,
+    train_dir: Path,
+    test_dir: Path,
+    val_dir: Path | None = None,
+    test_ratio: float = 0.2,
+    val_ratio: float = 0.0,
+    seed: int = 42,
+):
+    """
+    Splits binary files from src_dir into train/test (and optionally val) directories.
+
+    Returns:
+        dict with keys 'train', 'test', (optionally 'val') mapping to file counts.
+    """
+    if test_ratio <= 0 or test_ratio >= 1:
+        raise ValueError("test_ratio must be between 0 and 1 (exclusive)")
+    if val_ratio < 0 or val_ratio >= 1:
+        raise ValueError("val_ratio must be between 0 and 1 (exclusive)")
+    if test_ratio + val_ratio >= 1:
+        raise ValueError("test_ratio + val_ratio must be less than 1")
+
+    files = [f for f in src_dir.iterdir() if f.is_file()]
+    if not files:
+        raise ValueError(f"No files found in {src_dir}")
+
+    rng = Random(seed)
+    rng.shuffle(files)
+
+    n = len(files)
+    n_test = max(1, round(n * test_ratio))
+    n_val = max(1, round(n * val_ratio)) if val_ratio > 0 else 0
+    n_train = n - n_test - n_val
+
+    if n_train <= 0:
+        raise ValueError(f"Not enough files ({n}) for the requested split ratios")
+
+    splits = {
+        "train": (train_dir, files[:n_train]),
+        "test":  (test_dir,  files[n_train:n_train + n_test]),
+    }
+    if val_dir is not None and n_val > 0:
+        splits["val"] = (val_dir, files[n_train + n_test:])
+
+    counts = {}
+    for split_name, (out_dir, split_files) in splits.items():
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for f in split_files:
+            shutil.move(str(f), str(out_dir / f.name))
+        counts[split_name] = len(split_files)
+
+    return counts
 
 def strip_elf_debug_sections(file_path: Path, output_path: Path):
     """

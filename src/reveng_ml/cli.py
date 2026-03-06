@@ -6,11 +6,50 @@ from pathlib import Path
 import torch
 
 from reveng_ml.evaluate import Evaluator
-from reveng_ml.data import BinaryChunkDataset
+from reveng_ml.data import BinaryChunkDataset, split_dataset_files
 from reveng_ml.model import get_model
 from reveng_ml.trainer import Trainer
 
 app = typer.Typer(help="Function boundary detection model training & evaluation")
+
+@app.command()
+def split_dataset(
+    src_dir: Path = typer.Option(..., "--input-dir", "-d", help="Directory containing all binary files to split"),
+    train_dir: Path = typer.Option("data/train", "--train-dir", help="Output directory for training files"),
+    test_dir: Path = typer.Option("data/test", "--test-dir", help="Output directory for test files"),
+    val_dir: Path = typer.Option(None, "--val-dir", help="Output directory for validation files (omit to skip)"),
+    test_ratio: float = typer.Option(0.2, "--test-ratio", help="Fraction of files to use for testing"),
+    val_ratio: float = typer.Option(0.0, "--val-ratio", help="Fraction of files to use for validation (0 to skip)"),
+    seed: int = typer.Option(42, "--seed", help="Random seed for reproducibility"),
+):
+    """
+    Split binary files into train/test (and optionally val) directories.
+    Split is performed at the file level to prevent data leakage between chunks.
+    """
+    if not src_dir.exists() or not src_dir.is_dir():
+        print(f"Error: Input directory '{src_dir}' does not exist.")
+        raise typer.Exit(code=1)
+
+    try:
+        counts = split_dataset_files(
+            src_dir=src_dir,
+            train_dir=train_dir,
+            test_dir=test_dir,
+            val_dir=val_dir if val_ratio > 0 else None,
+            test_ratio=test_ratio,
+            val_ratio=val_ratio,
+            seed=seed,
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+    print(f"Moved {counts['train']} files  -> {train_dir}")
+    print(f"Moved {counts['test']} files  -> {test_dir}")
+    if "val" in counts:
+        print(f"Moved {counts['val']} files  -> {val_dir}")
+    print(f"Total: {sum(counts.values())} files | seed={seed}")
+
 
 @app.command()
 def create_dataset(

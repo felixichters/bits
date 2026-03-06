@@ -27,6 +27,13 @@ Run using `uv`. Dependencies will be installed automatically by `uv`.
 uv run python -m reveng_ml --help
 ```
 
+Split all binaries into train/test directories before training.
+```bash
+uv run python -m reveng_ml split-dataset --input-dir data/all_binaries
+# Or with a validation set and custom ratio
+uv run python -m reveng_ml split-dataset --input-dir data/all_binaries --test-ratio 0.2 --val-ratio 0.1 --val-dir data/val
+```
+
 Train using training data in `data/train`
 ```bash
 
