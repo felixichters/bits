@@ -83,6 +83,7 @@ def evaluate(
     batch_size: int = typer.Option(32, "--batch-size", "-b", help="Evaluation batch size"),
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
+    compare_xda: bool = typer.Option(False, "--compare-xda", help="Run XDA baseline comparison"),
 ):
     """
     Evaluate a trained model on a test dataset.
@@ -119,7 +120,7 @@ def evaluate(
         model.load_state_dict(torch.load(model_path,map_location=torch.device('cpu')))
 
     # Evaluate
-    evaluator = Evaluator(model, dataset, batch_size=batch_size)
+    evaluator = Evaluator(model, dataset, batch_size=batch_size, compare_xda=compare_xda)
     evaluator.evaluate()
     print(f"Evaluation complete.")
 
