@@ -17,13 +17,11 @@ def split_dataset(
     src_dir: Path = typer.Option(..., "--input-dir", "-d", help="Directory containing all binary files to split"),
     train_dir: Path = typer.Option("data/train", "--train-dir", help="Output directory for training files"),
     test_dir: Path = typer.Option("data/test", "--test-dir", help="Output directory for test files"),
-    val_dir: Path = typer.Option(None, "--val-dir", help="Output directory for validation files (omit to skip)"),
     test_ratio: float = typer.Option(0.2, "--test-ratio", help="Fraction of files to use for testing"),
-    val_ratio: float = typer.Option(0.0, "--val-ratio", help="Fraction of files to use for validation (0 to skip)"),
     seed: int = typer.Option(42, "--seed", help="Random seed for reproducibility"),
 ):
     """
-    Split binary files into train/test (and optionally val) directories.
+    Split binary files into train/test directories.
     Split is performed at the file level to prevent data leakage between chunks.
     """
     if not src_dir.exists() or not src_dir.is_dir():
@@ -35,9 +33,7 @@ def split_dataset(
             src_dir=src_dir,
             train_dir=train_dir,
             test_dir=test_dir,
-            val_dir=val_dir if val_ratio > 0 else None,
             test_ratio=test_ratio,
-            val_ratio=val_ratio,
             seed=seed,
         )
     except ValueError as e:
@@ -46,8 +42,6 @@ def split_dataset(
 
     print(f"Moved {counts['train']} files  -> {train_dir}")
     print(f"Moved {counts['test']} files  -> {test_dir}")
-    if "val" in counts:
-        print(f"Moved {counts['val']} files  -> {val_dir}")
     print(f"Total: {sum(counts.values())} files | seed={seed}")
 
 
