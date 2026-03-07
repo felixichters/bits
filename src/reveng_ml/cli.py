@@ -22,7 +22,6 @@ def split_dataset(
 ):
     """
     Split binary files into train/test directories.
-    Split is performed at the file level to prevent data leakage between chunks.
     """
     if not src_dir.exists() or not src_dir.is_dir():
         print(f"Error: Input directory '{src_dir}' does not exist.")

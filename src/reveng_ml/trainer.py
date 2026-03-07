@@ -3,6 +3,7 @@ Training script for the RevEng-ML project.
 """
 import time
 from pathlib import Path
+from typing import Optional
 
 import torch
 from torch.optim import AdamW
@@ -24,7 +25,7 @@ class Trainer:
         learning_rate: float = 5e-5,
         batch_size: int = 32,
         model_dir: Path = Path('./models'),
-        class_weight_boundary: float | None = None
+        class_weight_boundary: Optional[float] = None
     ):
         """
         Create a new Trainer class.
