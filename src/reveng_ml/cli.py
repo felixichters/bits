@@ -10,7 +10,7 @@ from reveng_ml.data import BinaryChunkDataset, split_dataset_files
 from reveng_ml.model import get_model
 from reveng_ml.trainer import Trainer
 
-app = typer.Typer(help="Function boundary detection model training & evaluation")
+app = typer.Typer(help="Function and instruction boundary detection model training & evaluation")
 
 @app.command()
 def split_dataset(
@@ -50,7 +50,9 @@ def create_dataset(
     chunk_size: int = typer.Option(510, "--chunk-size", "-c" , help="Size Of Chunk to be fed into model at a time"),
     stride: int = typer.Option(255, "--stride", "-s", help="Amount of stride (overlap with previous and following chunk)"),
     onlyDotText: bool = typer.Option(True, "--only-text", "-t", help="Wether the whole binary or only the .text section get used"),
-    result_path: Path = typer.Option("data/default.dataset", "--output-path", "-o", help="Resulting dataset file path")
+    result_path: Path = typer.Option("data/default.dataset", "--output-path", "-o", help="Resulting dataset file path"),
+    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
     Create new dataset file from executabes inside given directory
@@ -58,17 +60,17 @@ def create_dataset(
     if not data_path.exists() or not any(data_path.iterdir()):
         print(f"Error: Training data directory '{data_path}' is empty or does not exist.")
         raise typer.Exit(code=1)
-    
+
     # Load training data
     print(f"Loading data from {data_path}...")
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, onlyIncludeCodeSegment=onlyDotText)
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, onlyIncludeCodeSegment=onlyDotText, task=task, arch=arch)
     if not dataset:
         print("Warning: The dataset is empty.")
         raise typer.Exit()
 
     dataset.save(result_path)
-    
-    
+
+
     print(f"Created dataset with {len(dataset)} chunks, {chunk_size} chunk size and {stride} stride.")
     print(f"Saved dataset to: {result_path}")
 
@@ -83,24 +85,26 @@ def train(
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
     class_weight_boundary: float = typer.Option(None, "--class-weight", "-w", help="Manual weight for boundary classes (B-FUNC, E-FUNC). If not set, weights are computed dynamically from label distribution"),
+    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    inst_loss_weight: float = typer.Option(1.0, "--inst-loss-weight", help="Weight for instruction loss relative to function loss in multi-task mode"),
+    arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
-    Train a new function boundary detection model.
+    Train a new boundary detection model.
     """
-    
 
     # Load training data
     print(f"Loading data from {data_path}...")
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride)
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, task=task, arch=arch)
     if not dataset:
         print("Warning: The dataset is empty. No training will be performed.")
         raise typer.Exit()
     print(f"Created dataset with {len(dataset)} chunks.")
 
     print("Initializing model...")
-    model = get_model()
+    model = get_model(task=task)
     # Train
-    trainer = Trainer(model, dataset, learning_rate=learning_rate, batch_size=batch_size, model_dir=model_dir, class_weight_boundary=class_weight_boundary)
+    trainer = Trainer(model, dataset, learning_rate=learning_rate, batch_size=batch_size, model_dir=model_dir, class_weight_boundary=class_weight_boundary, task=task, inst_loss_weight=inst_loss_weight)
     trainer.train(epochs=epochs)
 
     # Save
@@ -116,6 +120,8 @@ def evaluate(
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
     compare_xda: bool = typer.Option(False, "--compare-xda", help="Run XDA baseline comparison"),
+    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
     Evaluate a trained model on a test dataset.
@@ -126,18 +132,7 @@ def evaluate(
         print(f"Error: Model file not found at '{model_path}'.")
         raise typer.Exit(code=1)
 
-    """
-    if data_path.is_file():
-        print(f"Loading test data from dataset file {data_path}")
-        dataset = BinaryChunkDataset(dataset_path=dataset_path)
-    else:
-        print(f"Loading test data from directory {data_path}")
-        if not data_path.exists() or not any(data_path.iterdir()):
-            print(f"Error: Test data directory '{data_path}' is empty or does not exist.")
-            raise typer.Exit(code=1)
-        """
-    
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False, for_evaluation=True)
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False, for_evaluation=True, task=task, arch=arch)
     if not dataset:
         print("Warning: The test dataset is empty. No evaluation will be performed.")
         raise typer.Exit()
@@ -145,14 +140,14 @@ def evaluate(
 
     # Load trained model
     print(f"Loading model from {model_path}...")
-    model = get_model()
+    model = get_model(task=task)
     if torch.cuda.is_available():
         model.load_state_dict(torch.load(model_path))
     else:
         model.load_state_dict(torch.load(model_path,map_location=torch.device('cpu')))
 
     # Evaluate
-    evaluator = Evaluator(model, dataset, batch_size=batch_size, compare_xda=compare_xda)
+    evaluator = Evaluator(model, dataset, batch_size=batch_size, compare_xda=compare_xda, task=task)
     evaluator.evaluate()
     print(f"Evaluation complete.")
 
@@ -160,4 +155,3 @@ def evaluate(
 if __name__ == "__main__":
 
     app()
-

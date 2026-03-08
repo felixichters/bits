@@ -10,7 +10,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import os
-from transformers import get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup, BertForTokenClassification
 from reveng_ml.utils import get_pytorch_device
 from torch.nn.utils import clip_grad_norm_
 
@@ -25,7 +25,9 @@ class Trainer:
         learning_rate: float = 5e-5,
         batch_size: int = 32,
         model_dir: Path = Path('./models'),
-        class_weight_boundary: Optional[float] = None
+        class_weight_boundary: Optional[float] = None,
+        task: str = "function",
+        inst_loss_weight: float = 1.0,
     ):
         """
         Create a new Trainer class.
@@ -38,6 +40,8 @@ class Trainer:
             model_dir (Path): Model output directory
             class_weight_boundary (float | None): Weight for boundary classes (B-FUNC, E-FUNC).
                 If None, weights are computed dynamically from the dataset using inverse frequency.
+            task (str): "function", "instruction", or "both"
+            inst_loss_weight (float): Weight for instruction loss relative to function loss in multi-task mode
         """
         self.device = get_pytorch_device()
         self.model = model.to(self.device)
@@ -46,19 +50,30 @@ class Trainer:
         self.optimizer = AdamW(self.model.parameters(), lr=learning_rate)
         self.model_dir = model_dir
         self.model_dir.mkdir(exist_ok=True)
+        self.task = task
+        self.inst_loss_weight = inst_loss_weight
 
-        if class_weight_boundary is not None:
-            self.class_weights = torch.tensor([1.0, class_weight_boundary, class_weight_boundary]).to(self.device)
-            print(f"Using manual class weights: {self.class_weights.tolist()}")
-        else:
-            counts = dataset.get_label_counts()
-            total = counts.sum().float()
-            num_classes = 3
-            self.class_weights = (total / (num_classes * counts.float())).to(self.device)
-            print(f"Label distribution: O={counts[0]:,}, B-FUNC={counts[1]:,}, E-FUNC={counts[2]:,}")
-            print(f"Using dynamic class weights: {[f'{w:.2f}' for w in self.class_weights.tolist()]}")
+        func_counts, inst_counts = dataset.get_label_counts()
 
-        self.loss_fct = torch.nn.CrossEntropyLoss(weight=self.class_weights)
+        # Function boundary loss
+        if task in ("function", "both"):
+            if class_weight_boundary is not None:
+                self.func_class_weights = torch.tensor([1.0, class_weight_boundary, class_weight_boundary]).to(self.device)
+                print(f"Using manual function class weights: {self.func_class_weights.tolist()}")
+            else:
+                total = func_counts.sum().float()
+                self.func_class_weights = (total / (3 * func_counts.float())).to(self.device)
+                print(f"Label distribution: O={func_counts[0]:,}, B-FUNC={func_counts[1]:,}, E-FUNC={func_counts[2]:,}")
+                print(f"Using dynamic function class weights: {[f'{w:.2f}' for w in self.func_class_weights.tolist()]}")
+            self.func_loss_fct = torch.nn.CrossEntropyLoss(weight=self.func_class_weights)
+
+        # Instruction boundary loss
+        if task in ("instruction", "both"):
+            total = inst_counts.sum().float()
+            self.inst_class_weights = (total / (2 * inst_counts.float())).to(self.device)
+            print(f"Instruction label distribution: NOT-START={inst_counts[0]:,}, INST-START={inst_counts[1]:,}")
+            print(f"Using dynamic instruction class weights: {[f'{w:.2f}' for w in self.inst_class_weights.tolist()]}")
+            self.inst_loss_fct = torch.nn.CrossEntropyLoss(weight=self.inst_class_weights)
 
     def train(self, epochs: int = 3):
         """
@@ -82,29 +97,39 @@ class Trainer:
             print(f"--- Starting Epoch {epoch + 1}/{epochs} ---")
             epoch_start_time = time.time()
             total_loss = 0
-            
+
             # Wrap with tqdm() to show progress_bar
             progress_bar = tqdm(self.loader, desc=f"Epoch {epoch + 1}/{epochs}", leave=False)
-            
-            for i, (batch_data, batch_labels) in enumerate(progress_bar):
-                
-                #no attention mask needed since currently all inputs are completely filled and not padded
-                #att_msk = torch.zeros(batch_data.shape[0],512,dtype=batch_data.dtype)
-                #att_msk[:batch_data.size(0),:batch_data.size(1)] = torch.ones_like(batch_data)
-                #att_msk = att_msk.to(self.device)
 
-                batch_labels = batch_labels.to(self.device)
+            for i, (batch_data, batch_func_labels, batch_inst_labels) in enumerate(progress_bar):
+
                 batch_data = batch_data.to(self.device)
+                batch_func_labels = batch_func_labels.to(self.device)
+                batch_inst_labels = batch_inst_labels.to(self.device)
 
                 # Clear prev. gradients
                 self.model.zero_grad()
 
-                # Forward pass
-                outputs = self.model(input_ids=batch_data)
-                
-                # Compute loss with class weights
-                logits = outputs.logits
-                loss = self.loss_fct(logits.view(-1, 3), batch_labels.view(-1))
+                # Backward-compatible path for function-only with original model
+                if self.task == "function" and isinstance(self.model, BertForTokenClassification):
+                    outputs = self.model(input_ids=batch_data)
+                    logits = outputs.logits
+                    loss = self.func_loss_fct(logits.view(-1, 3), batch_func_labels.view(-1))
+                else:
+                    outputs = self.model(input_ids=batch_data, task=self.task)
+                    loss = torch.tensor(0.0, device=self.device)
+
+                    if self.task in ("function", "both"):
+                        func_loss = self.func_loss_fct(
+                            outputs.func_logits.view(-1, 3), batch_func_labels.view(-1)
+                        )
+                        loss = loss + func_loss
+
+                    if self.task in ("instruction", "both"):
+                        inst_loss = self.inst_loss_fct(
+                            outputs.inst_logits.view(-1, 2), batch_inst_labels.view(-1)
+                        )
+                        loss = loss + self.inst_loss_weight * inst_loss
 
                 total_loss += loss.item()
 

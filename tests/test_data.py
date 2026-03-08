@@ -7,6 +7,7 @@ import tempfile
 import shutil
 from reveng_ml.data import (
     get_function_boundaries_from_elf,
+    get_instruction_boundaries_from_elf,
     BinaryChunkDataset,
     strip_elf_debug_sections,
     split_dataset_files,
@@ -95,10 +96,36 @@ def test_get_function_boundaries(sample_binary, capsys):
         assert size > 0
 
 
+def test_get_instruction_boundaries(sample_binary):
+    """Tests that instruction boundaries are extracted from an unstripped binary."""
+    inst_starts = get_instruction_boundaries_from_elf(sample_binary)
+
+    # Should find many instruction starts in a compiled binary
+    assert len(inst_starts) > 0
+
+    # Every function start should also be an instruction start
+    func_boundaries = get_function_boundaries_from_elf(sample_binary)
+    from io import BytesIO
+    from elftools.elf.elffile import ELFFile
+
+    with open(sample_binary, 'rb') as f:
+        file_bytes = f.read()
+    with BytesIO(file_bytes) as stream:
+        elffile = ELFFile(stream)
+        for section in elffile.iter_sections():
+            if section.name == ".text":
+                text_offset = section.header['sh_offset']
+                break
+
+    for func_offset in func_boundaries.keys():
+        local = func_offset - text_offset
+        if local >= 0:
+            assert local in inst_starts, f"Function start at local offset {local} should be an instruction start"
+
+
 def test_binary_chunk_dataset(sample_binary, capsys):
     """
     Tests the full BinaryChunkDataset pipeline.
-    Uses `data_path` (not `data_dir`) to match the actual __init__ signature.
     """
     data_path = sample_binary.parent
 
@@ -108,18 +135,54 @@ def test_binary_chunk_dataset(sample_binary, capsys):
     # Ensure some chunks were created
     assert len(dataset) > 0
 
-    # Check the type of the first chunk and its label
-    chunk, label = dataset[0]
+    # Check the type of the first chunk and its labels (now 3-tuple)
+    chunk, func_label, inst_label = dataset[0]
     assert chunk.dtype == torch.long
-    assert label.dtype == torch.long
+    assert func_label.dtype == torch.long
+    assert inst_label.dtype == torch.long
 
     # At least one label in all the chunks should be 1 (B-FUNC)
     found_label = False
-    for _, label in dataset:
-        if 1 in label:
+    for _, func_label, _ in dataset:
+        if 1 in func_label:
             found_label = True
             break
     assert found_label, "No function start label found in any chunk."
+
+
+def test_binary_chunk_dataset_both_task(sample_binary, capsys):
+    """Tests dataset with task='both' returns valid instruction labels."""
+    data_path = sample_binary.parent
+
+    with capsys.disabled():
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False, task="both")
+
+    assert len(dataset) > 0
+
+    chunk, func_labels, inst_labels = dataset[0]
+    assert chunk.shape == func_labels.shape == inst_labels.shape
+
+    # Instruction labels should have some 1s (instruction starts)
+    found_inst = False
+    for _, _, inst_labels in dataset:
+        if 1 in inst_labels:
+            found_inst = True
+            break
+    assert found_inst, "No instruction start label found in any chunk."
+
+
+def test_binary_chunk_dataset_instruction_only(sample_binary, capsys):
+    """Tests dataset with task='instruction' has instruction labels but zero func labels."""
+    data_path = sample_binary.parent
+
+    with capsys.disabled():
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False, task="instruction")
+
+    assert len(dataset) > 0
+    _, func_labels, inst_labels = dataset[0]
+
+    # func_labels should be all zeros for instruction-only task
+    assert func_labels.sum().item() == 0
 
 
 # ---------------------------------------------------------------------------
@@ -177,19 +240,7 @@ def test_split_dataset_files_test_ratio_respected(tmp_path):
 
 
 def test_split_dataset_files_reproducible(tmp_path):
-    """Same seed and same initial file set produces the same counts and filenames.
-
-    We use a single source directory approach: create two independent source directories
-    with identical filenames, rely on alphabetical sorting to make iterdir deterministic,
-    and verify the same files land in each split.
-
-    Note: Path.iterdir() ordering is filesystem-dependent.  To make both runs comparable
-    we sort the file list inside each source directory before computing the split,
-    which is exactly what split_dataset_files does NOT do (it uses unsorted iterdir).
-    Therefore, we verify at least that the *count* of files in each split is the same,
-    and additionally that a fixed-seed run of split_dataset_files is idempotent when
-    given fresh copies of the same file set.
-    """
+    """Same seed and same initial file set produces the same counts and filenames."""
     src1 = tmp_path / "src1"
     src2 = tmp_path / "src2"
     src1.mkdir()
@@ -241,19 +292,21 @@ def test_split_dataset_files_empty_directory(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_get_label_counts(sample_binary, capsys):
-    """get_label_counts returns a (3,) tensor of non-negative values summing to total tokens."""
+    """get_label_counts returns a tuple of (func_counts[3], inst_counts[2])."""
     data_path = sample_binary.parent
 
     with capsys.disabled():
         dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False)
 
-    counts = dataset.get_label_counts()
+    func_counts, inst_counts = dataset.get_label_counts()
 
-    assert counts.shape == (3,), f"Expected shape (3,), got {counts.shape}"
-    assert (counts >= 0).all(), "All counts must be non-negative"
+    assert func_counts.shape == (3,), f"Expected shape (3,), got {func_counts.shape}"
+    assert inst_counts.shape == (2,), f"Expected shape (2,), got {inst_counts.shape}"
+    assert (func_counts >= 0).all(), "All func counts must be non-negative"
+    assert (inst_counts >= 0).all(), "All inst counts must be non-negative"
 
-    total_tokens = sum(label.numel() for _, label in dataset)
-    assert counts.sum().item() == total_tokens
+    total_tokens = sum(func_label.numel() for _, func_label, _ in dataset)
+    assert func_counts.sum().item() == total_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +328,8 @@ def test_dataset_save_load(sample_binary, tmp_path, capsys):
 
     assert len(reloaded) == len(dataset), "Reloaded dataset length must match original"
 
-    orig_chunk, orig_label = dataset[0]
-    reloaded_chunk, reloaded_label = reloaded[0]
+    orig_chunk, orig_func_label, orig_inst_label = dataset[0]
+    reloaded_chunk, reloaded_func_label, reloaded_inst_label = reloaded[0]
     assert torch.equal(orig_chunk, reloaded_chunk), "First chunk bytes must match after reload"
-    assert torch.equal(orig_label, reloaded_label), "First chunk labels must match after reload"
+    assert torch.equal(orig_func_label, reloaded_func_label), "First chunk func labels must match after reload"
+    assert torch.equal(orig_inst_label, reloaded_inst_label), "First chunk inst labels must match after reload"
