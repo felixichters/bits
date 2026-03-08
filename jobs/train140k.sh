@@ -1,9 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=rev-eng-train
 #SBATCH --partition=gpu_h100
-#!/bin/bash
-#SBATCH --job-name=rev-eng-train
-#SBATCH --partition=gpu_h100
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
