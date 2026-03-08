@@ -1,7 +1,10 @@
 """
 Model definition for the RevEng-ML project.
 """
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -11,8 +14,8 @@ from transformers import BertConfig, BertModel, BertForTokenClassification
 @dataclass
 class DualHeadOutput:
     """Output container for the dual-head model."""
-    func_logits: torch.Tensor | None  # (batch, seq_len, num_func_labels)
-    inst_logits: torch.Tensor | None  # (batch, seq_len, num_inst_labels)
+    func_logits: Optional[torch.Tensor]  # (batch, seq_len, num_func_labels)
+    inst_logits: Optional[torch.Tensor]  # (batch, seq_len, num_inst_labels)
 
     @property
     def logits(self):
