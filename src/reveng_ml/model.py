@@ -59,7 +59,7 @@ def get_model(
     num_attention_heads: int = 8,
     num_hidden_layers: int = 4,
     intermediate_size: int = 1024,
-    task: str = "function",
+    task: str = "both",
 ) -> nn.Module:
     """
     Initializes a new BERT model for token classification with a custom configuration.

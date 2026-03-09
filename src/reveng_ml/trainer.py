@@ -26,7 +26,7 @@ class Trainer:
         batch_size: int = 32,
         model_dir: Path = Path('./models'),
         class_weight_boundary: Optional[float] = None,
-        task: str = "function",
+        task: str = "both",
         inst_loss_weight: float = 1.0,
     ):
         """

@@ -212,7 +212,7 @@ class BinaryChunkDataset(Dataset):
     This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True, for_evaluation=False, task="function", arch="x86_64"):
+    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True, for_evaluation=False, task="both", arch="x86_64"):
         """
         Args:
             data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.

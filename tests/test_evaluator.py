@@ -31,19 +31,18 @@ def test_evaluator_evaluate_returns_string():
     Evaluator.evaluate() returns a non-empty string containing classification report keywords.
     """
     chunk_size = 16
-    num_labels = 3
-    dataset = _TinyEvalDataset(num_chunks=2, chunk_size=chunk_size, num_func_labels=num_labels)
+    dataset = _TinyEvalDataset(num_chunks=2, chunk_size=chunk_size)
     model = get_model()
 
     def fake_forward(*args, **kwargs):
         batch_input = kwargs.get("input_ids", args[0] if args else None)
         batch_size = batch_input.shape[0]
         seq_len = batch_input.shape[1]
-        fake_logits = torch.zeros(batch_size, seq_len, num_labels)
-        fake_logits[:, :, 0] = 10.0
-        output = MagicMock()
-        output.logits = fake_logits
-        return output
+        func_logits = torch.zeros(batch_size, seq_len, 3)
+        func_logits[:, :, 0] = 10.0
+        inst_logits = torch.zeros(batch_size, seq_len, 2)
+        inst_logits[:, :, 0] = 10.0
+        return DualHeadOutput(func_logits=func_logits, inst_logits=inst_logits)
 
     evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False)
 

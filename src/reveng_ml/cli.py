@@ -51,7 +51,7 @@ def create_dataset(
     stride: int = typer.Option(255, "--stride", "-s", help="Amount of stride (overlap with previous and following chunk)"),
     onlyDotText: bool = typer.Option(True, "--only-text", "-t", help="Wether the whole binary or only the .text section get used"),
     result_path: Path = typer.Option("data/default.dataset", "--output-path", "-o", help="Resulting dataset file path"),
-    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    task: str = typer.Option("both", "--task", help="Task: 'function', 'instruction', or 'both'"),
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
@@ -85,7 +85,7 @@ def train(
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
     class_weight_boundary: float = typer.Option(None, "--class-weight", "-w", help="Manual weight for boundary classes (B-FUNC, E-FUNC). If not set, weights are computed dynamically from label distribution"),
-    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    task: str = typer.Option("both", "--task", help="Task: 'function', 'instruction', or 'both'"),
     inst_loss_weight: float = typer.Option(1.0, "--inst-loss-weight", help="Weight for instruction loss relative to function loss in multi-task mode"),
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
@@ -120,7 +120,7 @@ def evaluate(
     chunk_size: int = typer.Option(510, help="Size of each binary chunk"),
     stride: int = typer.Option(255, help="Stride for overlapping chunks"),
     compare_xda: bool = typer.Option(False, "--compare-xda", help="Run XDA baseline comparison"),
-    task: str = typer.Option("function", "--task", help="Task: 'function', 'instruction', or 'both'"),
+    task: str = typer.Option("both", "--task", help="Task: 'function', 'instruction', or 'both'"),
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """

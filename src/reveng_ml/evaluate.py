@@ -19,7 +19,7 @@ from pathlib import Path
 class Evaluator:
     """Evaluates a trained model"""
 
-    def __init__(self, model: torch.nn.Module, dataset: Dataset, batch_size: int = 32, compare_xda: bool = False, task: str = "function"):
+    def __init__(self, model: torch.nn.Module, dataset: Dataset, batch_size: int = 32, compare_xda: bool = False, task: str = "both"):
         """
         Creates a new Evaluator class
 
