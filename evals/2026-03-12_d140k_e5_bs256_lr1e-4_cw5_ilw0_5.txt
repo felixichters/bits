@@ -1,0 +1,52 @@
+dataset: 140K split
+epochs: 5
+batch size: 256
+learning rate: 1e-4
+class weight: 5
+init loss weight: 0.5
+
+--- Function Boundary Classification Report ---
+Class Distribution:
+  O (non-boundary): 78,124,536 (99.26%)
+  B-FUNC: 298,996 (0.38%)
+  E-FUNC: 281,198 (0.36%)
+
+              precision    recall  f1-score   support
+
+           O       1.00      1.00      1.00  78124536
+      B-FUNC       0.95      0.99      0.97    298996
+      E-FUNC       0.95      0.99      0.97    281198
+
+    accuracy                           1.00  78704730
+   macro avg       0.97      1.00      0.98  78704730
+weighted avg       1.00      1.00      1.00  78704730
+
+Confusion Matrix:
+              Predicted
+              O      B-FUNC  E-FUNC
+Actual O      78095914 15481   13141  
+       B-FUNC 1673    297051  272    
+       E-FUNC 1979    153     279066 
+-----------------------------
+
+
+--- Instruction Boundary Classification Report ---
+Class Distribution:
+  NOT-START: 60,166,358 (76.45%)
+  INST-START: 18,538,372 (23.55%)
+
+              precision    recall  f1-score   support
+
+   NOT-START       1.00      1.00      1.00  60166358
+  INST-START       1.00      1.00      1.00  18538372
+
+    accuracy                           1.00  78704730
+   macro avg       1.00      1.00      1.00  78704730
+weighted avg       1.00      1.00      1.00  78704730
+
+Confusion Matrix:
+              Predicted
+              NOT-START  INST-START
+Actual NOT-START  60104092   62266     
+       INST-START 13612      18524760  
+-----------------------------
