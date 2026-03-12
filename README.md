@@ -13,16 +13,6 @@ This multi-task dual-head architecture follows the approach of [XDA](https://arx
 
 Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` ELF sections. Ground truth for instruction boundaries is obtained by linearly disassembling the `.text` section with [Capstone](https://www.capstone-engine.org/).
 
-## Repository Structure
-
--   `src/reveng_ml/`: Main Python source code for the ML pipeline
--   `data/`: Raw/processed datasets
--   `jobs/`: SLURM job scripts for cluster training
--   `scripts/`: Helper and utility scripts
--   `notebooks/`: Jupyter notebooks for experimentation, analysis, and visualization
--   `tests/`: Unit tests
--   `pyproject.toml`: Project metadata and dependencies
-
 ## Setup
 
 You will need [uv](https://github.com/astral-sh/uv). To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
