@@ -1,0 +1,47 @@
+This is the same model as 2026-03-12 but evaluated on a dataset with O2 optimization to test generalization.
+
+--- Function Boundary Classification Report ---
+Class Distribution:
+  O (non-boundary): 3,076,134 (99.09%)
+  B-FUNC: 14,169 (0.46%)
+  E-FUNC: 14,067 (0.45%)
+
+              precision    recall  f1-score   support
+
+           O       1.00      1.00      1.00   3076134
+      B-FUNC       0.78      0.76      0.77     14169
+      E-FUNC       0.73      0.61      0.67     14067
+
+    accuracy                           1.00   3104370
+   macro avg       0.84      0.79      0.81   3104370
+weighted avg       0.99      1.00      1.00   3104370
+
+Confusion Matrix:
+              Predicted
+              O      B-FUNC  E-FUNC
+Actual O      3069978 3040    3116   
+       B-FUNC 3425    10739   5      
+       E-FUNC 5458    3       8606   
+-----------------------------
+
+
+--- Instruction Boundary Classification Report ---
+Class Distribution:
+  NOT-START: 2,323,500 (74.85%)
+  INST-START: 780,870 (25.15%)
+
+              precision    recall  f1-score   support
+
+   NOT-START       1.00      1.00      1.00   2323500
+  INST-START       0.99      0.99      0.99    780870
+
+    accuracy                           1.00   3104370
+   macro avg       1.00      1.00      1.00   3104370
+weighted avg       1.00      1.00      1.00   3104370
+
+Confusion Matrix:
+              Predicted
+              NOT-START  INST-START
+Actual NOT-START  2317654    5846      
+       INST-START 4163       776707    
+-----------------------------

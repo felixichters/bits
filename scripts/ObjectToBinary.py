@@ -209,9 +209,18 @@ def update_c_file(file_path, program_index):
     with open(file_path, 'w',errors='ignore') as file:
         file.writelines(lines)
 
+def get_linker(compiler):
+    '''Returns the appropriate linker. Always use g++/clang++ since they handle both C and C++ objects.'''
+    if compiler in ('gcc', 'g++'):
+        return 'g++'
+    elif compiler in ('clang', 'clang++'):
+        return 'clang++'
+    return compiler
+
 def initiateObjectToBinary(args, directory_path): # directory_path is a repo path in COMPILED (the repo contains the object files).
     dest_path = args.dest_path # COMPILE
     source_repo_directory = args.source_path # C_COMPILE
+    linker = get_linker(args.compiler)
 
     # entry is one repository. This function is getting called many times (all immediate directories will be traversed).
     if os.path.isdir(directory_path):
@@ -251,7 +260,7 @@ def initiateObjectToBinary(args, directory_path): # directory_path is a repo pat
                 relevant_object_files = resolve_dependencies(key, dependency, symbol_map)
                 #dependency[key]['dependentOn'] = relevant_object_files
                 program_path = os.path.join(directory_path,'executable')
-                compiler_setting = f'gcc -o {program_path}'
+                compiler_setting = f'{linker} -o {program_path}'
                 program_index = str(len(compile_commands)) # Used to name the programs starting with program0
                 # We generate the compile commands of the form: gcc -o program_index main.o other.o ..., where index is the i-th program.
                 compile_commands.append(compiler_setting+str(len(compile_commands))+ ' ' + key + ' ' + ' '.join(relevant_object_files))
@@ -287,11 +296,19 @@ def initiateObjectToBinary(args, directory_path): # directory_path is a repo pat
                     #print("SOURCE ELEMENTS ", source_elements)
 
                     path_elements.reverse()  # Format is ["COMPILED", "REPO1", ..., "file.o"]
-                    path_elements[-1] = path_elements[-1].rsplit('.', 1)[0] + '.c' # Format is ["COMPILED, "REPO1", ..., "file.c"]
-                    #print("source_repo ",source_repo_directory)
-                    #print("path_elements ",source_repo_directory,*path_elements[len(source_elements)-1:])
-                    respective_source_file_path = os.path.join(source_repo_directory,*path_elements[len(source_elements)-1:]) # Format is ["C_COMPILED, "REPO1", ..., "file.c"]
-                    #print("respective_source ",respective_source_file_path)
+                    # Find the matching source file — could be .c, .cpp, .cc, or .cxx
+                    base_name = path_elements[-1].rsplit('.', 1)[0]
+                    source_dir_path = os.path.join(source_repo_directory, *path_elements[len(source_elements)-1:-1])
+                    respective_source_file_path = None
+                    for ext in ('.c', '.cpp', '.cc', '.cxx'):
+                        candidate = os.path.join(source_dir_path, base_name + ext)
+                        if os.path.exists(candidate):
+                            respective_source_file_path = candidate
+                            break
+                    if respective_source_file_path is None:
+                        # Fallback to .c for backward compatibility
+                        path_elements[-1] = base_name + '.c'
+                        respective_source_file_path = os.path.join(source_repo_directory, *path_elements[len(source_elements)-1:])
                     update_c_file(respective_source_file_path, program_index) # Note, we update the C files with extra information of the expected exeutable name. The compilation might fail, and we still add the information.
         # Finally we link the objects and create an executeable.
         linkObjects(compile_commands, directory_path)

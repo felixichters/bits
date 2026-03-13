@@ -43,6 +43,24 @@ RESET = "\033[0m"
 
 
 
+C_EXTENSIONS = ('.c',)
+CPP_EXTENSIONS = ('.cpp', '.cc', '.cxx')
+SOURCE_EXTENSIONS = C_EXTENSIONS + CPP_EXTENSIONS
+HEADER_EXTENSIONS = ('.h', '.hpp', '.hxx')
+
+def get_compiler_for_file(base_compiler, file_path):
+    '''
+    Returns the appropriate compiler command for a given file.
+    For C++ files, uses g++/clang++ instead of gcc/clang.
+    '''
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext in CPP_EXTENSIONS:
+        if base_compiler == 'gcc':
+            return 'g++'
+        elif base_compiler == 'clang':
+            return 'clang++'
+    return base_compiler
+
 def replace_include_directives(c_code):
     '''
     Input: C code
@@ -79,7 +97,8 @@ def is_c_file_compilable(c_file_path, visited_include_folders,args, error_log_fi
     We make sure the compilation time takes less than two minutes and consumes less than 100MB of storage, to avoid compiler bombs, and in general too much waiting time per repo.
     '''
     destinationPath = args.dest_path
-    compiler = args.compiler
+    base_compiler = args.compiler
+    compiler = get_compiler_for_file(base_compiler, c_file_path)
     optimization_level = args.optimization
     timeout = args.timeout
     max_file_size = args.max_file_size
@@ -128,7 +147,8 @@ def is_c_file_compilable(c_file_path, visited_include_folders,args, error_log_fi
 
     # Here we first remove all comments from the source file!
     try:
-        preprocess_cmd = f"gcc -fpreprocessed -dD -E -P \"{c_file_path}\""
+        preprocess_compiler = compiler if compiler in ('gcc', 'clang') else ('gcc' if 'g++' in compiler else 'clang')
+        preprocess_cmd = f"{preprocess_compiler} -fpreprocessed -dD -E -P \"{c_file_path}\""
         preprocess_result = subprocess.run(preprocess_cmd, shell=True, capture_output=True, text=True, errors='ignore', timeout=timeout)
         if preprocess_result.returncode != 0:
             return False
@@ -143,8 +163,8 @@ def is_c_file_compilable(c_file_path, visited_include_folders,args, error_log_fi
     # Note: -I argument takes directory path without space. If we run gcc -c source.c with subdir "Include" we use -IInclude to pass Include directory
 
     compiler_bomb_restriction_prefix = f'ulimit -f {max_file_size} && timeout {timeout} '
-    compiler_options = f'{compiler} ' + '-pipe ' if compiler == 'gcc' else ''
-    compiler_options += f'-c -gdwarf -O{optimization_level} -o "{compile_destination}" "{c_file_path}" {all_include_folders}'  # Note: If neededd, you can compile without producing an output binary by gcc -c /dev/null if you want
+    pipe_flag = '-pipe ' if compiler in ('gcc', 'g++') else ''
+    compiler_options = f'{compiler} {pipe_flag}-c -gdwarf -O{optimization_level} -o "{compile_destination}" "{c_file_path}" {all_include_folders}'  # Note: If neededd, you can compile without producing an output binary by gcc -c /dev/null if you want
     compile_cmd = compiler_bomb_restriction_prefix+compiler_options
     if len(compile_cmd) > MAX_SHELL_SIZE: # Windows max size shell is 8191
         return 0
@@ -259,9 +279,9 @@ def parallel_process(args):
                     visited_include_folders.append(os.path.join(root, d))
                 for f in files:
                     file_path = os.path.join(root, f)
-                    if f.endswith('.c'):
+                    if f.endswith(SOURCE_EXTENSIONS):
                         c_files.append(file_path)
-                    elif f.endswith('.h'):
+                    elif f.endswith(HEADER_EXTENSIONS):
                         h_files.append(file_path)
 
             # Modify headers before creating compile tasks for this repo

@@ -19,6 +19,24 @@ import numpy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
+def _extract_repo_name(filename: str) -> str:
+    """Extract the repo name from a binary filename, stripping compiler config prefixes.
+
+    Examples:
+        'gcc_O2_author_repo_executable0' -> 'author_repo'
+        'clang_O1_author_repo'           -> 'author_repo'
+        'author_repo_executable0'        -> 'author_repo'
+        'author_repo'                    -> 'author_repo'
+    """
+    import re
+    name = filename
+    # Strip compiler config prefix (e.g., 'gcc_O2_', 'clang_O3_')
+    name = re.sub(r'^(?:gcc|clang|g\+\+|clang\+\+)_O[0-3]_', '', name)
+    # Strip executable suffix (e.g., '_executable0', '_executable12')
+    name = re.sub(r'_executable\d+$', '', name)
+    return name
+
+
 def split_dataset_files(
     src_dir: Path,
     train_dir: Path,
@@ -27,7 +45,10 @@ def split_dataset_files(
     seed: int = 42,
 ):
     """
-    Splits binary files from src_dir into train/test directories.
+    Splits binary files into train/test directories, grouping by source repo.
+
+    All compiler variants (gcc_O0, clang_O3, etc.) of the same repo go into
+    the same split to prevent data leakage.
 
     Returns:
         dict with keys 'train', 'test' mapping to file counts.
@@ -39,19 +60,30 @@ def split_dataset_files(
     if not files:
         raise ValueError(f"No files found in {src_dir}")
 
+    # Group files by repo name
+    from collections import defaultdict
+    repo_files = defaultdict(list)
+    for f in files:
+        repo = _extract_repo_name(f.name)
+        repo_files[repo].append(f)
+
+    repos = list(repo_files.keys())
     rng = Random(seed)
-    rng.shuffle(files)
+    rng.shuffle(repos)
 
-    n = len(files)
-    n_test = max(1, round(n * test_ratio))
-    n_train = n - n_test
+    n_repos = len(repos)
+    n_test_repos = max(1, round(n_repos * test_ratio))
+    n_train_repos = n_repos - n_test_repos
 
-    if n_train <= 0:
-        raise ValueError(f"Not enough files ({n}) for the requested split ratios")
+    if n_train_repos <= 0:
+        raise ValueError(f"Not enough repos ({n_repos}) for the requested split ratios")
+
+    train_repos = repos[:n_train_repos]
+    test_repos = repos[n_train_repos:]
 
     splits = {
-        "train": (train_dir, files[:n_train]),
-        "test":  (test_dir,  files[n_train:]),
+        "train": (train_dir, [f for r in train_repos for f in repo_files[r]]),
+        "test":  (test_dir,  [f for r in test_repos  for f in repo_files[r]]),
     }
 
     counts = {}
@@ -60,6 +92,9 @@ def split_dataset_files(
         for f in split_files:
             shutil.move(str(f), str(out_dir / f.name))
         counts[split_name] = len(split_files)
+
+    print(f"Split {n_repos} repos: {n_train_repos} train, {n_test_repos} test")
+    print(f"Files: {counts['train']} train, {counts['test']} test")
 
     return counts
 
