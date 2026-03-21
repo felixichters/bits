@@ -5,15 +5,8 @@ permissions:
   contents: write
 
 on:
-  # TODO: Remove ci-updates branch once before the CI update branch is merged into main
-  push:
-    branches:
-      - "main"
-      - "ci-updates"
-  pull_request:
-    branches:
-      - "main"
-      - "ci-updates"
+  push: {}
+  pull_request: {}
 
 jobs:
   test:
@@ -80,7 +73,7 @@ jobs:
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Unit tests
+          name: "Report: Unit tests"
           path: ./ci_artifacts/junit.xml
           reporter: java-junit
 
