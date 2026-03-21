@@ -16,6 +16,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Workaround: Sometimes the pip package installation will fail due to insufficient disk space on the GitHub runner.
+      #             As a workaround, we free up some space of preinstalled stuff we don't need for our CI task.
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v6
 
       - name: Set up Python
