@@ -1,5 +1,9 @@
 name: Run unit tests
 
+permissions:
+  checks: write
+  contents: write
+
 on:
   # TODO: Remove ci-updates branch once before the CI update branch is merged into main
   push:
