@@ -72,12 +72,15 @@ jobs:
           hide-comment: true
           hide-emoji: true
 
-      - name: Write to GitHub job summary
+      - name: Write test result summary
+        uses: jeantessier/test-summary-action@v1
+        if: always()
+
+      - name: Write coverage result summary
         if: always()
         env:
           SUMMARY_REPORT: ${{ steps.pytest-coverage.outputs.summaryReport }}
           COVERAGE_HTML: ${{ steps.pytest-coverage.outputs.coverageHtml }}
         run: |
-          echo "$SUMMARY_REPORT" >> $GITHUB_STEP_SUMMARY
           echo -e "\n\n\n" >> $GITHUB_STEP_SUMMARY
           echo "$COVERAGE_HTML" >> $GITHUB_STEP_SUMMARY
