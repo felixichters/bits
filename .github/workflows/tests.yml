@@ -74,6 +74,10 @@ jobs:
 
       - name: Write to GitHub job summary
         if: always()
+        env:
+          SUMMARY_REPORT: ${{ steps.pytest-coverage.outputs.summaryReport }}
+          COVERAGE_HTML: ${{ steps.pytest-coverage.outputs.coverageHtml }}
         run: |
-          echo "${{ steps.pytest-coverage.outputs.summaryReport }}" >> $GITHUB_STEP_SUMMARY
-          echo "\n\n\n${{ steps.pytest-coverage.outputs.coverageHtml }}\n\n\n" >> $GITHUB_STEP_SUMMARY
+          echo "$SUMMARY_REPORT" >> $GITHUB_STEP_SUMMARY
+          echo -e "\n\n\n" >> $GITHUB_STEP_SUMMARY
+          echo "$COVERAGE_HTML" >> $GITHUB_STEP_SUMMARY
