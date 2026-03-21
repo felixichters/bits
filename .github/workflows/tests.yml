@@ -65,4 +65,19 @@ jobs:
         uses: jeantessier/test-summary-action@v1
         if: ${{ always() }}
         with:
-            paths: "ci_artifacts/junit.xml"
+            #paths: "ci_artifacts/junit.xml"
+
+      - id: run-tests
+        uses: dima-engineer/pytest-reporter@v3
+        with:
+          cov-omit-list: tests/*
+          cov-threshold-single: 85
+          cov-threshold-total: 90
+          async-tests: true
+
+      - name: Show failing tests
+        if: always()
+        uses: pmeier/pytest-results-action@main
+        with:
+          path: ci_artifacts/junit.xml
+          summary: true
