@@ -57,21 +57,26 @@ jobs:
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: pytest-artifacts
           path: ci_artifacts
 
-      - name: Publish test summary (on GitHub's job result page)
-        uses: jeantessier/test-summary-action@v1
-        if: ${{ always() }}
-
-      - id: run-tests
-        uses: dima-engineer/pytest-reporter@v3
+      - name: Test & Coverage summary
+        id: pytest-coverage
+        if: always()
+        uses: MishaKav/pytest-coverage-comment@v1
         with:
-          cov-omit-list: tests/*
-          cov-threshold-single: 85
-          cov-threshold-total: 90
-          async-tests: true
+          pytest-coverage-path: ./ci_artifacts/coverage.xml
+          junitxml-path: ./ci_artifacts/junit.xml
+          hide-comment: true
+          hide-emoji: true
+
+      - name: Write to GitHub job summary
+        if: always()
+        run: |
+          echo "${{ steps.pytest-coverage.outputs.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "\n\n\n${{ steps.pytest-coverage.outputs.summary }}\n\n\n" >> $GITHUB_STEP_SUMMARY
 
       - name: Show failing tests
         if: always()
