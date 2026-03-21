@@ -1,8 +1,15 @@
 name: Run unit tests
 
 on:
-  push: {}
-  pull_request: {}
+  # TODO: Remove ci-updates branch once before the CI update branch is merged into main
+  push:
+    branches:
+      - "main"
+      - "ci-updates"
+  pull_request:
+    branches:
+      - "main"
+      - "ci-updates"
 
 jobs:
   test:
@@ -16,14 +23,38 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Cache pip
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/pip
+            .venv
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml','**/requirements*.txt') }}-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip build setuptools wheel
 
-      - name: Install package
+      - name: Install package & dependencies
         run: |
           pip install -e .
 
       - name: Run unit tests
-        run: pytest -q
+        run: |
+          mkdir -p ci_artifacts
+          pytest -q --junitxml=ci_artifacts/junit.xml --cov=reveng_ml --cov-report=xml:ci_artifacts/coverage.xml
+        continue-on-error: false
 
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: pytest-artifacts
+          path: ci_artifacts
+
+      - name: Publish test summary (on GitHub's job result page)
+        uses: jeantessier/test-summary-action@v1
+        if: ${{ always() }}
+        with:
+            paths: "ci_artifacts/junit.xml"
