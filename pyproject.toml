@@ -25,6 +25,14 @@ dev = [
     "ruff>=0.1.5",
 ]
 
+[tool.coverage.run]
+omit = [
+    # Exclude the CLI and main entry point from coverage, as they are not easily testable
+    "src/reveng_ml/__init__.py",
+    "src/reveng_ml/__main__.py",
+    "src/reveng_ml/cli.py",
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"

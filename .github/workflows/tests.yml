@@ -72,9 +72,13 @@ jobs:
           hide-comment: true
           hide-emoji: true
 
-      - name: Write test result summary
-        uses: jeantessier/test-summary-action@v1
+      - name: Test Report
+        uses: dorny/test-reporter@v1
         if: always()
+        with:
+          name: Unit tests
+          path: ./ci_artifacts/junit.xml
+          reporter: java-junit
 
       - name: Write coverage result summary
         if: always()
