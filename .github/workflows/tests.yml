@@ -67,7 +67,7 @@ jobs:
         if: always()
         uses: MishaKav/pytest-coverage-comment@v1
         with:
-          pytest-coverage-path: ./ci_artifacts/coverage.xml
+          pytest-xml-coverage-path: ./ci_artifacts/coverage.xml
           junitxml-path: ./ci_artifacts/junit.xml
           hide-comment: true
           hide-emoji: true
