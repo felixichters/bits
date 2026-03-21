@@ -64,8 +64,6 @@ jobs:
       - name: Publish test summary (on GitHub's job result page)
         uses: jeantessier/test-summary-action@v1
         if: ${{ always() }}
-        with:
-            #paths: "ci_artifacts/junit.xml"
 
       - id: run-tests
         uses: dima-engineer/pytest-reporter@v3
