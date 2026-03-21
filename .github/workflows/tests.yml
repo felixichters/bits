@@ -19,15 +19,10 @@ jobs:
       # Workaround: Sometimes the pip package installation will fail due to insufficient disk space on the GitHub runner.
       #             As a workaround, we free up some space of preinstalled stuff we don't need for our CI task.
       - name: Free up disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+        run: |
+          sudo rm -rf /usr/local/lib/android # Android (~10GB)
+          sudo rm -rf /usr/local/julia* # Julia language (~1GB)
+          sudo rm -rf /usr/local/lib/node_modules # NodeJS (~0.8GB)
 
       - uses: actions/checkout@v6
 
