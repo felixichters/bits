@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=reveng-compile
 #SBATCH --partition=cpu
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=128G
+#SBATCH --cpus-per-task=128
+#SBATCH --mem=256G
 #SBATCH --time=48:00:00
 #SBATCH --output=logs/compile_%j.out
 #SBATCH --error=logs/compile_%j.err
@@ -13,7 +13,7 @@ set -euo pipefail
 mkdir -p logs
 
 WORK_ROOT="${WORK}/reveng-data"
-BUILD_ROOT="${WORK_ROOT}/build"
+BUILD_ROOT="${TMPDIR}/build"
 BINARIES="${WORK_ROOT}/binaries"
 MANIFESTS="${WORK_ROOT}/manifests"
 PACKAGE_LIST="${MANIFESTS}/package_list.txt"
