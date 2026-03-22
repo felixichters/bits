@@ -7,10 +7,12 @@ from typing import Optional
 
 import torch
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 from transformers import get_linear_schedule_with_warmup, BertForTokenClassification
+
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.utils import get_pytorch_device
 from torch.nn.utils import clip_grad_norm_
 
@@ -21,7 +23,7 @@ class Trainer:
     def __init__(
         self,
         model: torch.nn.Module,
-        dataset: Dataset,
+        dataset: BinaryChunkDataset,
         learning_rate: float = 5e-5,
         batch_size: int = 32,
         model_dir: Path = Path('./models'),

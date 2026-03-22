@@ -1,17 +1,18 @@
+from pathlib import Path
 
 import torch
-import pytest
-from unittest.mock import patch, MagicMock
-from torch.utils.data import Dataset
+from unittest.mock import patch
 
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.model import get_model, DualHeadOutput
 from reveng_ml.evaluate import Evaluator
 
 
-class _TinyEvalDataset(Dataset):
+class _TinyEvalDataset(BinaryChunkDataset):
     """Fixed chunks for evaluator tests, returns 3-tuples."""
 
     def __init__(self, num_chunks: int = 2, chunk_size: int = 16, num_func_labels: int = 3, num_inst_labels: int = 2):
+        super().__init__(data_path=Path())
         self.chunks = []
         for _ in range(num_chunks):
             data = torch.randint(0, 257, (chunk_size,), dtype=torch.long)

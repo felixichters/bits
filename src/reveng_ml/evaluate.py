@@ -4,13 +4,14 @@ Evaluation script for the RevEng-ML project.
 import os.path
 import torch
 from sklearn.metrics import classification_report
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import pickle
 import subprocess
 from transformers import BertForTokenClassification
 
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.utils import get_pytorch_device
 
 import os
@@ -21,7 +22,7 @@ class Evaluator:
 
     def __init__(self,
                  model: torch.nn.Module,
-                 dataset: Dataset,
+                 dataset: BinaryChunkDataset,
                  batch_size: int = 32,
                  compare_xda: bool = False,
                  task: str = "both"):
