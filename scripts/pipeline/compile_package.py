@@ -392,6 +392,9 @@ def compile_package(
     timeout: int = MAKE_TIMEOUT,
 ) -> dict:
     """Compile a package and return status dict."""
+    source_dir = source_dir.resolve()
+    build_dir = build_dir.resolve()
+
     env = get_compiler_env(compiler, optimization)
     build_system = detect_build_system(source_dir)
 

@@ -18,8 +18,6 @@ MANIFESTS="${WORK_ROOT}/manifests"
 
 mkdir -p "${SOURCES}"/{debian,gnu,thestack} "${MANIFESTS}" "${WORK_ROOT}/logs/download"
 
-echo "Starting downloads at $(date)"
-
 # Download GNU sources
 echo "Downloading GNU sources"
 uv run python scripts/pipeline/download_gnu_sources.py \
@@ -46,6 +44,5 @@ uv run python scripts/pipeline/generate_package_list.py \
     --sources-dir "${SOURCES}" \
     --output "${MANIFESTS}/package_list.txt"
 
-echo "Downloads complete at $(date)"
 echo "Package list: ${MANIFESTS}/package_list.txt"
 wc -l "${MANIFESTS}/package_list.txt"
