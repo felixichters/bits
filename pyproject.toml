@@ -53,6 +53,7 @@ line-length = 125
 [tool.ruff.lint]
 # Reference: https://docs.astral.sh/ruff/rules
 select = [
+    "D",
     "E",
     "F",
     "B",
@@ -64,6 +65,9 @@ ignore = [
     "E741", # Allow short variable names in some cases for readability
     "B007",
     "SIM118",
+    # Docstring rules
+    "D100", "D104", "D200", "D202", "D203",
+    "D205", "D212", "D401", "D413"
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -1,5 +1,5 @@
 """
-Command-line interface
+Command-line interface.
 """
 import typer
 from pathlib import Path
@@ -55,7 +55,7 @@ def create_dataset(
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
-    Create new dataset file from executabes inside given directory
+    Create new dataset file from executables inside given directory.
     """
     if not data_path.exists() or not any(data_path.iterdir()):
         print(f"Error: Training data directory '{data_path}' is empty or does not exist.")

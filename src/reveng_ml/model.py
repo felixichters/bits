@@ -14,6 +14,7 @@ from transformers import BertConfig, BertModel, BertForTokenClassification
 @dataclass
 class DualHeadOutput:
     """Output container for the dual-head model."""
+
     func_logits: Optional[torch.Tensor]  # (batch, seq_len, num_func_labels)
     inst_logits: Optional[torch.Tensor]  # (batch, seq_len, num_inst_labels)
 
@@ -27,6 +28,7 @@ class DualHeadBertForTokenClassification(nn.Module):
     """BERT encoder with two independent classification heads for function and instruction boundaries."""
 
     def __init__(self, config: BertConfig, num_func_labels: int = 3, num_inst_labels: int = 2):
+        """Initializes the dual-head BERT encore for token classification."""
         super().__init__()
         self.config = config
         self.bert = BertModel(config, add_pooling_layer=False)
@@ -37,6 +39,10 @@ class DualHeadBertForTokenClassification(nn.Module):
         self.num_inst_labels = num_inst_labels
 
     def forward(self, input_ids, attention_mask=None, task="both"):
+        """
+        Performs a forward pass through the model, classifying function and/or
+        instruction boundaries based on the specified task.
+        """
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         sequence_output = self.dropout(outputs.last_hidden_state)
 

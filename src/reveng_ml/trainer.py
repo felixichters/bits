@@ -18,7 +18,7 @@ from torch.nn.utils import clip_grad_norm_
 
 
 class Trainer:
-    """Trains a model using a dataset"""
+    """Trains a model using a dataset."""
 
     def __init__(
         self,
@@ -154,7 +154,7 @@ class Trainer:
 
 
     def save_model(self, filename: str = "reveng_model.bin"):
-        """Saves the model state"""
+        """Saves the model state."""
         os.makedirs(self.model_dir, exist_ok=True)
         save_path = self.model_dir / filename
         torch.save(self.model.state_dict(), save_path)

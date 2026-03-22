@@ -20,7 +20,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def _extract_repo_name(filename: str) -> str:
-    """Extract the repo name from a binary filename, stripping compiler config prefixes.
+    """
+    Extract the repo name from a binary filename, stripping compiler config prefixes.
 
     Examples:
         'gcc_O2_author_repo_executable0' -> 'author_repo'
@@ -253,16 +254,21 @@ class BinaryChunkDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
+
     def __init__(self, data_path: Path, chunk_size=510, stride=255, randomize_file_order=True,
                  only_include_code_segment=True, for_evaluation=False, task="both", arch="x86_64"):
         """
+        Create a new BinaryChunkDataset from a directory of unstripped binary files or a pre-chunked dataset file.
+
         Args:
             data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.
             chunk_size (int): The size of each data chunk.
             stride (int): The step size to move when creating overlapping chunks.
-            for_evaluation (bool): Use non-overlapping Chunks
-            task (str): "function", "instruction", or "both"
-            arch (str): Architecture for instruction disassembly: "x86_64", "x86_32", "arm"
+            randomize_file_order (bool): Whether to randomize the order of files when creating chunks.
+            only_include_code_segment (bool): Whether to use only the .text section or the whole binary.
+            for_evaluation (bool): Use non-overlapping chunks.
+            task (str): "function", "instruction", or "both".
+            arch (str): Architecture for instruction disassembly: "x86_64", "x86_32", "arm"..
         """
         self.task = task
         self.arch = arch
@@ -468,12 +474,15 @@ class BinaryChunkDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         return func_counts, inst_counts
 
     def __len__(self) -> int:
+        """Returns the number of chunks in the dataset."""
         return len(self.chunks)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns the (data, func_labels, inst_labels) tuple for the chunk at index idx."""
         return self.chunks[idx]
 
     def save(self, result_path: Path):
+        """Saves the dataset to a file for later loading."""
         try:
             with open(result_path,"wb") as f:
                 pickle.dump(

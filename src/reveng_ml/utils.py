@@ -1,5 +1,5 @@
 """
-Utility functions for the project
+Utility functions for the project.
 """
 import torch
 

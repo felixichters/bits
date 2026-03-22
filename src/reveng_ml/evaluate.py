@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 class Evaluator:
-    """Evaluates a trained model"""
+    """Evaluates a trained model."""
 
     def __init__(self,
                  model: torch.nn.Module,
@@ -27,7 +27,7 @@ class Evaluator:
                  compare_xda: bool = False,
                  task: str = "both"):
         """
-        Creates a new Evaluator class
+        Creates a new Evaluator class.
 
         Args:
             model: Trained PyTorch model to evaluate
@@ -45,7 +45,7 @@ class Evaluator:
 
     def evaluate(self) -> str:
         """
-        Execute evaluation
+        Execute evaluation.
 
         Returns:
             A string containing the classification report(s) from scikit-learn
