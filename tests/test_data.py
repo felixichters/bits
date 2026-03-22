@@ -143,7 +143,7 @@ def test_binary_chunk_dataset(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=True)
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomize_file_order=True)
 
     # Ensure some chunks were created
     assert len(dataset) > 0
@@ -168,7 +168,8 @@ def test_binary_chunk_dataset_both_task(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False, task="both")
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64,
+                                     randomize_file_order=False, task="both")
 
     assert len(dataset) > 0
 
@@ -189,7 +190,8 @@ def test_binary_chunk_dataset_instruction_only(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False, task="instruction")
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64,
+                                     randomize_file_order=False, task="instruction")
 
     assert len(dataset) > 0
     _, func_labels, inst_labels = dataset[0]
@@ -203,7 +205,7 @@ def test_binary_chunk_dataset_with_padding(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=100000, stride=64, randomizeFileOrder=True)
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=100000, stride=64, randomize_file_order=True)
 
     # Our sample binary is very small, so we expect only one chunk with padding
     assert len(dataset) == 1
@@ -218,8 +220,8 @@ def test_binary_chunk_dataset_only_text_false(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset_full = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, onlyIncludeCodeSegment=False)
-        dataset_text = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, onlyIncludeCodeSegment=True)
+        dataset_full = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, only_include_code_segment=False)
+        dataset_text = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, only_include_code_segment=True)
 
     # Ensure some chunks were created
     assert len(dataset_full) > 0
@@ -339,7 +341,7 @@ def test_get_label_counts(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False)
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomize_file_order=False)
 
     func_counts, inst_counts = dataset.get_label_counts()
 
@@ -361,13 +363,13 @@ def test_dataset_save_load(sample_binary, tmp_path, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False)
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomize_file_order=False)
 
     save_path = tmp_path / "dataset.bin"
     dataset.save(save_path)
 
     with capsys.disabled():
-        reloaded = BinaryChunkDataset(data_path=save_path, chunk_size=128, stride=64, randomizeFileOrder=False)
+        reloaded = BinaryChunkDataset(data_path=save_path, chunk_size=128, stride=64, randomize_file_order=False)
 
     assert len(reloaded) == len(dataset), "Reloaded dataset length must match original"
 

@@ -254,7 +254,8 @@ class BinaryChunkDataset(Dataset):
     This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True, for_evaluation=False, task="both", arch="x86_64"):
+    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomize_file_order=True,
+                 only_include_code_segment=True, for_evaluation=False, task="both", arch="x86_64"):
         """
         Args:
             data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.
@@ -274,7 +275,7 @@ class BinaryChunkDataset(Dataset):
                     self.data_path = dataset[0]
                     self.chunk_size = dataset[1]
                     self.stride = dataset[2]
-                    self.onlyDotText = dataset[3]
+                    self.only_dot_text = dataset[3]
                     self.files = dataset[4]
                     if len(dataset) >= 6:
                         self.task = dataset[5]
@@ -308,7 +309,7 @@ class BinaryChunkDataset(Dataset):
             self.chunk_size = chunk_size
             self.stride = chunk_size if for_evaluation else stride
             self.chunks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
-            self.onlyDotText = onlyIncludeCodeSegment
+            self.only_dot_text = only_include_code_segment
 
             self.files = []
             print("Scanning input files for dataset in directory:", data_path)
@@ -321,7 +322,7 @@ class BinaryChunkDataset(Dataset):
                     self.files.append(f)
 
             # Randomize file order
-            if randomizeFileOrder:
+            if randomize_file_order:
                 shuffle(self.files)
             self._create_chunks()
 
@@ -338,16 +339,16 @@ class BinaryChunkDataset(Dataset):
             inst_starts = get_instruction_boundaries_from_elf(file_path, arch=self.arch)
 
         # Strip debug sections and read stripped bytes
-        textSectionOffset = 0
-        textSectionSize = 0
+        text_section_offset = 0
+        text_section_size = 0
 
-        if self.onlyDotText == False:
+        if self.only_dot_text == False:
             with TemporaryDirectory() as tmpdir:
                 stripped_path = Path(tmpdir) / "stripped_binary"
                 strip_elf_debug_sections(file_path, stripped_path)
                 with open(stripped_path, 'rb') as f:
                     stripped_file_bytes = f.read()
-                textSectionSize = len(stripped_file_bytes)
+                text_section_size = len(stripped_file_bytes)
         else:
             stripped_file_bytes = b''
 
@@ -358,8 +359,8 @@ class BinaryChunkDataset(Dataset):
                     elffile = ELFFile(stream)
                     for section in elffile.iter_sections():
                         if section.name == ".text":
-                            textSectionOffset = section.header['sh_offset']
-                            textSectionSize = section.header['sh_size']
+                            text_section_offset = section.header['sh_offset']
+                            text_section_size = section.header['sh_size']
                             stripped_file_bytes = section.data()
                             break
             except Exception as e:
@@ -384,15 +385,15 @@ class BinaryChunkDataset(Dataset):
             # Mark all E-FUNC endings first
             for (offset, size) in boundaries.items():
                 end_offset = offset + size - 1
-                if textSectionOffset <= end_offset < textSectionOffset + textSectionSize:
-                    local_end = end_offset - textSectionOffset
+                if text_section_offset <= end_offset < text_section_offset + text_section_size:
+                    local_end = end_offset - text_section_offset
                     if local_end < len(func_labels):
                         func_labels[local_end] = 2  # E-FUNC
 
             # Mark all B-FUNC starts second
             for (offset, size) in boundaries.items():
-                if textSectionOffset <= offset < textSectionOffset + textSectionSize:
-                    local_offset = offset - textSectionOffset
+                if text_section_offset <= offset < text_section_offset + text_section_size:
+                    local_offset = offset - text_section_offset
                     if local_offset < len(func_labels):
                         func_labels[local_offset] = 1  # B-FUNC
 
@@ -454,7 +455,7 @@ class BinaryChunkDataset(Dataset):
                 except Exception as e:
                     print(f"Warning: skipping file due to error: {e}")
 
-        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
+        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.only_dot_text})")
 
     def get_label_counts(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns (func_counts[3], inst_counts[2]) tensors of per-class label counts."""
@@ -476,7 +477,7 @@ class BinaryChunkDataset(Dataset):
     def save(self, result_path: Path):
         try:
             with open(result_path,"wb") as f:
-                pickle.dump([self.data_path, self.chunk_size, self.stride, self.onlyDotText, self.files, self.task, self.arch],f)
+                pickle.dump([self.data_path, self.chunk_size, self.stride, self.only_dot_text, self.files, self.task, self.arch], f)
             with open(str(result_path) + ".np","wb") as f:
                 numpy.save(f,self.chunks)
         except Exception as e:

@@ -49,7 +49,7 @@ def create_dataset(
     data_path: Path = typer.Option("data/train/default", "--input-dir", "-d" , help="Input Directory; all files inside will be included in the resulting dataset file"),
     chunk_size: int = typer.Option(510, "--chunk-size", "-c" , help="Size Of Chunk to be fed into model at a time"),
     stride: int = typer.Option(255, "--stride", "-s", help="Amount of stride (overlap with previous and following chunk)"),
-    onlyDotText: bool = typer.Option(True, "--only-text", "-t", help="Wether the whole binary or only the .text section get used"),
+    only_dot_text: bool = typer.Option(True, "--only-text", "-t", help="Whether the whole binary or only the .text section get used"),
     result_path: Path = typer.Option("data/default.dataset", "--output-path", "-o", help="Resulting dataset file path"),
     task: str = typer.Option("both", "--task", help="Task: 'function', 'instruction', or 'both'"),
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
@@ -63,7 +63,7 @@ def create_dataset(
 
     # Load training data
     print(f"Loading data from {data_path}...")
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, onlyIncludeCodeSegment=onlyDotText, task=task, arch=arch)
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, only_include_code_segment=only_dot_text, task=task, arch=arch)
     if not dataset:
         print("Warning: The dataset is empty.")
         raise typer.Exit()
@@ -132,7 +132,7 @@ def evaluate(
         print(f"Error: Model file not found at '{model_path}'.")
         raise typer.Exit(code=1)
 
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False, for_evaluation=True, task=task, arch=arch)
+    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomize_file_order=False, for_evaluation=True, task=task, arch=arch)
     if not dataset:
         print("Warning: The test dataset is empty. No evaluation will be performed.")
         raise typer.Exit()
