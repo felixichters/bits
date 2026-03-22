@@ -127,7 +127,7 @@ class Evaluator:
             e_count = sum(1 for l in func_labels if l == 2)
 
             print("\n--- Function Boundary Classification Report ---")
-            print(f"Class Distribution:")
+            print("Class Distribution:")
             print(f"  O (non-boundary): {o_count:,} ({100*o_count/total:.2f}%)")
             print(f"  B-FUNC: {b_count:,} ({100*b_count/total:.2f}%)")
             print(f"  E-FUNC: {e_count:,} ({100*e_count/total:.2f}%)")
@@ -157,7 +157,7 @@ class Evaluator:
             is_count = sum(1 for l in inst_labels if l == 1)
 
             print("\n--- Instruction Boundary Classification Report ---")
-            print(f"Class Distribution:")
+            print("Class Distribution:")
             print(f"  NOT-START: {ns_count:,} ({100*ns_count/total:.2f}%)")
             print(f"  INST-START: {is_count:,} ({100*is_count/total:.2f}%)")
             print(f"\n{report}")

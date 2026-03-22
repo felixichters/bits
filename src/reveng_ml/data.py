@@ -137,7 +137,7 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
         with open(file_path, 'rb') as f:
             file_bytes = f.read()
 
-        with BytesIO(file_bytes) as stream:
+        with (BytesIO(file_bytes) as stream):
             elffile = ELFFile(stream)
 
             va_to_offset_map = []
@@ -163,8 +163,8 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
                             and sym['st_size'] > 0
                             and sym['st_value'] != 0):
                         file_offset = va_to_file_offset(sym['st_value'])
-                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
-                            if file_offset not in boundaries or sym['st_size'] > boundaries[file_offset]:
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes) and \
+                             (file_offset not in boundaries or sym['st_size'] > boundaries[file_offset]):
                                 boundaries[file_offset] = sym['st_size']
 
             # .eh_frame fallback
@@ -181,8 +181,8 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
                         if func_size == 0 or plt_offset == func_va:
                             continue
                         file_offset = va_to_file_offset(func_va)
-                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
-                            if file_offset not in boundaries or func_size > boundaries[file_offset]:
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes) and \
+                             (file_offset not in boundaries or func_size > boundaries[file_offset]):
                                 boundaries[file_offset] = func_size
 
             if not boundaries:
@@ -342,7 +342,7 @@ class BinaryChunkDataset(Dataset):
         text_section_offset = 0
         text_section_size = 0
 
-        if self.only_dot_text == False:
+        if not self.only_dot_text:
             with TemporaryDirectory() as tmpdir:
                 stripped_path = Path(tmpdir) / "stripped_binary"
                 strip_elf_debug_sections(file_path, stripped_path)

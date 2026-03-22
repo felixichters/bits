@@ -81,8 +81,7 @@ def test_get_function_boundaries(sample_binary, capsys):
     with tempfile.TemporaryDirectory() as tmpdir:
         stripped_path = Path(tmpdir) / "stripped_binary"
         strip_elf_debug_sections(sample_binary, stripped_path)
-        with open(stripped_path, 'rb') as f:
-            with capsys.disabled():
+        with open(stripped_path, 'rb') as f, capsys.disabled():
                 disassemble_function_content(boundaries, binary=f.read())
 
     # We expect to find at least two functions: main and test
@@ -100,14 +99,14 @@ def test_get_function_boundaries_missing_symtab(sample_binary, capsys):
     even if the .symtab section is missing. The extractor should fall back to using .eh_frame instead.
     Both methods should return the same function boundaries.
     """
-    no_symtab_binary = tempfile.NamedTemporaryFile()
-    run_strip_command(['-R', ".symtab", '-o', no_symtab_binary.name, str(sample_binary)])
+    with(tempfile.NamedTemporaryFile()) as no_symtab_binary:
+        run_strip_command(['-R', ".symtab", '-o', no_symtab_binary.name, str(sample_binary)])
 
-    boundaries_eh_frame = get_function_boundaries_from_elf(Path(no_symtab_binary.name))
-    boundaries_symtab = get_function_boundaries_from_elf(sample_binary)
+        boundaries_eh_frame = get_function_boundaries_from_elf(Path(no_symtab_binary.name))
+        boundaries_symtab = get_function_boundaries_from_elf(sample_binary)
 
-    # The function boundaries extracted from the .symtab and .eh_frame should be the same
-    assert boundaries_symtab == boundaries_eh_frame
+        # The function boundaries extracted from the .symtab and .eh_frame should be the same
+        assert boundaries_symtab == boundaries_eh_frame
 
 def test_get_instruction_boundaries(sample_binary):
     """Tests that instruction boundaries are extracted from an unstripped binary."""
