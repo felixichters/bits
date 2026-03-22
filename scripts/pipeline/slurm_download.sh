@@ -12,7 +12,7 @@
 set -euo pipefail
 mkdir -p logs
 
-WORK_ROOT="${WORK}/reveng-data"
+WORK_ROOT="$(ws_find reveng-data)"
 SOURCES="${WORK_ROOT}/sources"
 MANIFESTS="${WORK_ROOT}/manifests"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=reveng-compile
 #SBATCH --partition=cpu
-#SBATCH --cpus-per-task=128
+#SBATCH --cpus-per-task=96
 #SBATCH --mem=256G
 #SBATCH --time=48:00:00
 #SBATCH --output=logs/compile_%j.out
@@ -12,7 +12,7 @@
 set -euo pipefail
 mkdir -p logs
 
-WORK_ROOT="${WORK}/reveng-data"
+WORK_ROOT="$(ws_find reveng-data)"
 BUILD_ROOT="${TMPDIR}/build"
 BINARIES="${WORK_ROOT}/binaries"
 MANIFESTS="${WORK_ROOT}/manifests"
@@ -21,7 +21,7 @@ PACKAGE_LIST="${MANIFESTS}/package_list.txt"
 mkdir -p "${BUILD_ROOT}" "${BINARIES}" "${WORK_ROOT}/logs/compile"
 
 if [ ! -f "${PACKAGE_LIST}" ]; then
-    echo "ERROR: ${PACKAGE_LIST} not found. Run slurm_download.sh first."
+    echo "ERROR: ${PACKAGE_LIST} not found."
     exit 1
 fi
 
