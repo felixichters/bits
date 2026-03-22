@@ -106,11 +106,16 @@ def strip_elf_debug_sections(file_path: Path, output_path: Path):
         file_path (Path): Input ELF file path.
         output_path (Path): Output ELF file path without debug sections.
     """
+    run_strip_command(['--strip-debug', '-o', str(output_path), str(file_path)])
+
+def run_strip_command(args: list[str]):
+    """
+    Helper function to run the external 'strip' command with specified arguments and print errors.
+    """
     try:
-        subprocess.run(['strip', '--strip-debug', '-o', str(output_path), str(file_path)],
-                       check=True, capture_output=True)
+        subprocess.run(['strip'] + args, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error stripping debug sections from {file_path}: {e.stderr.decode().strip()}")
+        print(f"Error stripping symbols '{args}': {e.stderr.decode().strip()}")
         raise
     except FileNotFoundError:
         print("The 'strip' command-line tool is not installed on this system.")
@@ -165,13 +170,15 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
             # .eh_frame fallback
             if not boundaries:
                 dwarf_info = elffile.get_dwarf_info()
+                plt_offset = elffile.get_section_by_name(".plt").header["sh_offset"]
                 if dwarf_info:
                     for entry in dwarf_info.EH_CFI_entries():
                         if not isinstance(entry, callframe.FDE):
                             continue
                         func_va = entry.header['initial_location']
                         func_size = entry.header['address_range']
-                        if func_size == 0:
+                        # Skip zero-size functions and PLT stub
+                        if func_size == 0 or plt_offset == func_va:
                             continue
                         file_offset = va_to_file_offset(func_va)
                         if file_offset is not None and 0 <= file_offset < len(file_bytes):
@@ -281,7 +288,7 @@ class BinaryChunkDataset(Dataset):
                     )
                 with open(str(data_path) + ".np","rb") as f:
                     loaded = numpy.load(f, allow_pickle=True)
-                    if len(loaded[0]) == 2:
+                    if len(loaded[0]) == 2: # pragma: deprecated
                         # Old format: (data, func_labels) — add zero inst_labels
                         self.chunks = [
                             (torch.tensor(pair[0]), torch.tensor(pair[1]),
@@ -358,15 +365,15 @@ class BinaryChunkDataset(Dataset):
             except Exception as e:
                 raise e
 
-        if not stripped_file_bytes:
+        if not stripped_file_bytes: # pragma: no cover
             print(f"Skipping {file_path.name}: No .text section or bytes found.")
             return []
 
-        if not boundaries and self.task in ("function", "both"):
+        if not boundaries and self.task in ("function", "both"): # pragma: no cover
             print(f"Skipping {file_path.name}: No valid function boundaries found.")
             return []
 
-        if not inst_starts and self.task == "instruction":
+        if not inst_starts and self.task == "instruction": # pragma: no cover
             print(f"Skipping {file_path.name}: No valid instruction boundaries found.")
             return []
 

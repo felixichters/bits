@@ -4,13 +4,12 @@ from pathlib import Path
 import torch
 import subprocess
 import tempfile
-import shutil
 from reveng_ml.data import (
     get_function_boundaries_from_elf,
     get_instruction_boundaries_from_elf,
     BinaryChunkDataset,
     strip_elf_debug_sections,
-    split_dataset_files,
+    split_dataset_files, run_strip_command,
 )
 
 
@@ -95,6 +94,20 @@ def test_get_function_boundaries(sample_binary, capsys):
         assert offset > 0
         assert size > 0
 
+def test_get_function_boundaries_missing_symtab(sample_binary, capsys):
+    """
+    Tests that function boundaries can still be extracted from an unstripped binary,
+    even if the .symtab section is missing. The extractor should fall back to using .eh_frame instead.
+    Both methods should return the same function boundaries.
+    """
+    no_symtab_binary = tempfile.NamedTemporaryFile()
+    run_strip_command(['-R', ".symtab", '-o', no_symtab_binary.name, str(sample_binary)])
+
+    boundaries_eh_frame = get_function_boundaries_from_elf(Path(no_symtab_binary.name))
+    boundaries_symtab = get_function_boundaries_from_elf(sample_binary)
+
+    # The function boundaries extracted from the .symtab and .eh_frame should be the same
+    assert boundaries_symtab == boundaries_eh_frame
 
 def test_get_instruction_boundaries(sample_binary):
     """Tests that instruction boundaries are extracted from an unstripped binary."""
@@ -130,7 +143,7 @@ def test_binary_chunk_dataset(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=False)
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, randomizeFileOrder=True)
 
     # Ensure some chunks were created
     assert len(dataset) > 0
@@ -184,6 +197,36 @@ def test_binary_chunk_dataset_instruction_only(sample_binary, capsys):
     # func_labels should be all zeros for instruction-only task
     assert func_labels.sum().item() == 0
 
+
+def test_binary_chunk_dataset_with_padding(sample_binary, capsys):
+    """Tests dataset with padding to fill up the last chunk if the binary is smaller than chunk_size."""
+    data_path = sample_binary.parent
+
+    with capsys.disabled():
+        dataset = BinaryChunkDataset(data_path=data_path, chunk_size=100000, stride=64, randomizeFileOrder=True)
+
+    # Our sample binary is very small, so we expect only one chunk with padding
+    assert len(dataset) == 1
+
+    # Ensure that the last byte of the chunk is padding (0)
+    _, func_labels, inst_labels = dataset[0]
+    assert func_labels[-1].item() == 0
+    assert inst_labels[-1].item() == 0
+
+def test_binary_chunk_dataset_only_text_false(sample_binary, capsys):
+    """Tests dataset with only_text=False includes all sections, not just .text."""
+    data_path = sample_binary.parent
+
+    with capsys.disabled():
+        dataset_full = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, onlyIncludeCodeSegment=False)
+        dataset_text = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, onlyIncludeCodeSegment=True)
+
+    # Ensure some chunks were created
+    assert len(dataset_full) > 0
+    assert len(dataset_text) > 0
+
+    # The full dataset should have more chunks than the text-only dataset
+    assert len(dataset_full) > len(dataset_text)
 
 # ---------------------------------------------------------------------------
 # Tests for split_dataset_files

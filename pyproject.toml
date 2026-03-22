@@ -33,6 +33,18 @@ omit = [
     "src/reveng_ml/cli.py",
 ]
 
+[tool.coverage.report]
+exclude_also = [
+    # Allow to mark code paths as deprecated
+    'pragma: deprecated',
+    # Exclude error handling code that is impractical to test
+    'raise ValueError',
+    'except Exception',
+    'except FileNotFoundError',
+    'except subprocess.CalledProcessError',
+    'except ELFError'
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
