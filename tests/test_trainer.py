@@ -11,10 +11,17 @@ from reveng_ml.trainer import Trainer
 class _TinyDataset(BinaryChunkDataset):
     """Minimal in-memory dataset with controllable label counts."""
 
-    def __init__(self, func_label_counts: torch.Tensor, inst_label_counts: torch.Tensor = None, num_chunks: int = 4, chunk_size: int = 16):
+    def __init__(
+            self,
+            func_label_counts: torch.Tensor,
+            inst_label_counts: torch.Tensor = None,
+            num_chunks: int = 4,
+            chunk_size: int = 16
+    ):
         super().__init__(data_path=Path())
         self._func_label_counts = func_label_counts
-        self._inst_label_counts = inst_label_counts if inst_label_counts is not None else torch.tensor([100, 20], dtype=torch.long)
+        self._inst_label_counts = inst_label_counts if inst_label_counts is not None \
+            else torch.tensor([100, 20], dtype=torch.long)
         self.chunks = []
         for _ in range(num_chunks):
             data = torch.randint(0, 257, (chunk_size,), dtype=torch.long)

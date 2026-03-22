@@ -455,7 +455,8 @@ class BinaryChunkDataset(Dataset):
                 except Exception as e:
                     print(f"Warning: skipping file due to error: {e}")
 
-        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.only_dot_text})")
+        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and "
+              f"{self.stride} stride. (only using text section: {self.only_dot_text})")
 
     def get_label_counts(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns (func_counts[3], inst_counts[2]) tensors of per-class label counts."""
@@ -477,9 +478,12 @@ class BinaryChunkDataset(Dataset):
     def save(self, result_path: Path):
         try:
             with open(result_path,"wb") as f:
-                pickle.dump([self.data_path, self.chunk_size, self.stride, self.only_dot_text, self.files, self.task, self.arch], f)
+                pickle.dump(
+                    [self.data_path, self.chunk_size, self.stride, self.only_dot_text, self.files, self.task, self.arch],
+                    f
+                )
             with open(str(result_path) + ".np","wb") as f:
-                numpy.save(f,self.chunks)
+                numpy.save(f, self.chunks)
         except Exception as e:
             print(e)
             raise e

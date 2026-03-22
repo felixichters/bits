@@ -37,7 +37,7 @@ def split_dataset(
         )
     except ValueError as e:
         print(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     print(f"Moved {counts['train']} files  -> {train_dir}")
     print(f"Moved {counts['test']} files  -> {test_dir}")
@@ -63,7 +63,15 @@ def create_dataset(
 
     # Load training data
     print(f"Loading data from {data_path}...")
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, only_include_code_segment=only_dot_text, task=task, arch=arch)
+    dataset = BinaryChunkDataset(
+        data_path=data_path,
+        chunk_size=chunk_size,
+        stride=stride,
+        only_include_code_segment=only_dot_text,
+        task=task,
+        arch=arch
+    )
+
     if not dataset:
         print("Warning: The dataset is empty.")
         raise typer.Exit()
@@ -103,8 +111,19 @@ def train(
 
     print("Initializing model...")
     model = get_model(task=task)
+
     # Train
-    trainer = Trainer(model, dataset, learning_rate=learning_rate, batch_size=batch_size, model_dir=model_dir, class_weight_boundary=class_weight_boundary, task=task, inst_loss_weight=inst_loss_weight)
+    trainer = Trainer(
+        model,
+        dataset,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        model_dir=model_dir,
+        class_weight_boundary=class_weight_boundary,
+        task=task,
+        inst_loss_weight=inst_loss_weight
+    )
+
     trainer.train(epochs=epochs)
 
     # Save
@@ -126,13 +145,22 @@ def evaluate(
     """
     Evaluate a trained model on a test dataset.
     """
-    print(f"Starting evaluation process...")
+    print("Starting evaluation process...")
 
     if not model_path.exists():
         print(f"Error: Model file not found at '{model_path}'.")
         raise typer.Exit(code=1)
 
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomize_file_order=False, for_evaluation=True, task=task, arch=arch)
+    dataset = BinaryChunkDataset(
+        data_path=data_path,
+        chunk_size=chunk_size,
+        stride=stride,
+        randomize_file_order=False,
+        for_evaluation=True,
+        task=task,
+        arch=arch
+    )
+
     if not dataset:
         print("Warning: The test dataset is empty. No evaluation will be performed.")
         raise typer.Exit()
@@ -149,7 +177,7 @@ def evaluate(
     # Evaluate
     evaluator = Evaluator(model, dataset, batch_size=batch_size, compare_xda=compare_xda, task=task)
     evaluator.evaluate()
-    print(f"Evaluation complete.")
+    print("Evaluation complete.")
 
 
 if __name__ == "__main__":

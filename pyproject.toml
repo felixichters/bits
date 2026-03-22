@@ -48,7 +48,7 @@ exclude_also = [
 [tool.ruff]
 include = ["pyproject.toml", "src/reveng_ml/*.py", "tests/*.py"]
 exclude = ["src/reveng_ml/ComparativeEvaluation/*.py"]
-line-length = 120
+line-length = 125
 
 [tool.ruff.lint]
 # Reference: https://docs.astral.sh/ruff/rules
@@ -65,6 +65,10 @@ ignore = [
     "B007",
     "SIM118",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore long lines in cli.py, it looks better to have the CLI help text formatted nicely in one line
+"cli.py" = ["E501"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Allow default arguments like for CLI options

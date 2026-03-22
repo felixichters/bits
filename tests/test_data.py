@@ -219,8 +219,8 @@ def test_binary_chunk_dataset_only_text_false(sample_binary, capsys):
     data_path = sample_binary.parent
 
     with capsys.disabled():
-        dataset_full = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, only_include_code_segment=False)
-        dataset_text = BinaryChunkDataset(data_path=data_path, chunk_size=128, stride=64, only_include_code_segment=True)
+        dataset_full = BinaryChunkDataset(data_path, chunk_size=128, stride=64, only_include_code_segment=False)
+        dataset_text = BinaryChunkDataset(data_path, chunk_size=128, stride=64, only_include_code_segment=True)
 
     # Ensure some chunks were created
     assert len(dataset_full) > 0
