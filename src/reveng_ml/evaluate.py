@@ -79,7 +79,7 @@ class Evaluator:
 
         reports = []
 
-        if self.compare_xda:
+        if self.compare_xda: # pragma: no cover
             print("Starting xda evaluation...")
             xdaDatasetInfoPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/dataset.info"))
             xdaResultPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
@@ -164,7 +164,7 @@ class Evaluator:
             print("-----------------------------\n")
             reports.append(report)
 
-        if self.compare_xda:
+        if self.compare_xda: # pragma: no cover
             print("\n--- Classification Report XDA ---")
             print(report_xda)
             print("-----------------------------\n")

@@ -82,6 +82,30 @@ def test_evaluator_instruction_task():
     assert "precision" in report.lower() or "recall" in report.lower()
 
 
+def test_evaluator_function_task():
+    """Evaluator with task='function' produces function boundary report."""
+    chunk_size = 16
+    dataset = _TinyEvalDataset(num_chunks=2, chunk_size=chunk_size)
+    model = get_model(task="function")
+
+    def fake_forward(*args, **kwargs):
+        batch_input = kwargs.get("input_ids", args[0] if args else None)
+        batch_size = batch_input.shape[0]
+        seq_len = batch_input.shape[1]
+        func_logits = torch.zeros(batch_size, seq_len, 3)
+        func_logits[:, :, 0] = 10.0
+        return DualHeadOutput(func_logits=func_logits, inst_logits=None)
+
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="function")
+
+    with patch.object(evaluator.model, "forward", side_effect=fake_forward):
+        report = evaluator.evaluate()
+
+    assert isinstance(report, str)
+    assert len(report) > 0
+    assert "precision" in report.lower() or "recall" in report.lower()
+
+
 def test_evaluator_both_task():
     """Evaluator with task='both' produces reports for both tasks."""
     chunk_size = 16
