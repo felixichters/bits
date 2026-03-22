@@ -84,6 +84,7 @@ class Evaluator:
         print("Evaluation complete.")
 
         reports = []
+        report_xda = ""
 
         if self.compare_xda: # pragma: no cover
             print("Starting xda evaluation...")

@@ -43,7 +43,7 @@ def split_dataset_files(
     test_dir: Path,
     test_ratio: float = 0.2,
     seed: int = 42,
-):
+) -> dict[str, int]:
     """
     Splits binary files into train/test directories, grouping by source repo.
 
@@ -62,7 +62,7 @@ def split_dataset_files(
 
     # Group files by repo name
     from collections import defaultdict
-    repo_files = defaultdict(list)
+    repo_files: dict[str, list[Path]] = defaultdict(list[Path])
     for f in files:
         repo = _extract_repo_name(f.name)
         repo_files[repo].append(f)
@@ -86,7 +86,7 @@ def split_dataset_files(
         "test":  (test_dir,  [f for r in test_repos  for f in repo_files[r]]),
     }
 
-    counts = {}
+    counts: dict[str, int] = {}
     for split_name, (out_dir, split_files) in splits.items():
         out_dir.mkdir(parents=True, exist_ok=True)
         for f in split_files:
@@ -222,8 +222,8 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
             if text_section is None:
                 return set()
 
-            text_bytes = text_section.data()
-            text_vaddr = text_section.header['sh_addr']
+            text_bytes: bytes = text_section.data()
+            text_vaddr: int = text_section.header['sh_addr']
 
             if arch == "x86_64":
                 md = Cs(CS_ARCH_X86, CS_MODE_64)
@@ -234,7 +234,7 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
             else:
                 raise ValueError(f"Unsupported architecture: {arch}")
 
-            inst_starts = set()
+            inst_starts = set[int]()
             for insn in md.disasm(text_bytes, text_vaddr):
                 local_offset = insn.address - text_vaddr
                 inst_starts.add(local_offset)
@@ -246,7 +246,7 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
         return set()
 
 
-class BinaryChunkDataset(Dataset):
+class BinaryChunkDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
     """
     PyTorch Dataset for binary files.
 
@@ -310,7 +310,7 @@ class BinaryChunkDataset(Dataset):
             self.chunks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
             self.only_dot_text = only_include_code_segment
 
-            self.files = []
+            self.files: list[Path] = []
             print("Scanning input files for dataset in directory:", data_path)
             lst = os.listdir(data_path)
             number_files = len(lst)
@@ -325,15 +325,14 @@ class BinaryChunkDataset(Dataset):
                 shuffle(self.files)
             self._create_chunks()
 
-    def _create_chunks_for_file_threaded(self, file_path):
-
-        local_chunks = []
+    def _create_chunks_for_file_threaded(self, file_path: Path) -> list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+        local_chunks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
 
         # Extract boundaries from the unstripped binary
         boundaries = get_function_boundaries_from_elf(file_path)
 
         # Extract instruction boundaries if needed
-        inst_starts = set()
+        inst_starts = set[int]()
         if self.task in ("instruction", "both"):
             inst_starts = get_instruction_boundaries_from_elf(file_path, arch=self.arch)
 

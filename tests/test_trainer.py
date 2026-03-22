@@ -14,7 +14,7 @@ class _TinyDataset(BinaryChunkDataset):
     def __init__(
             self,
             func_label_counts: torch.Tensor,
-            inst_label_counts: torch.Tensor = None,
+            inst_label_counts: torch.Tensor | None = None,
             num_chunks: int = 4,
             chunk_size: int = 16
     ):
