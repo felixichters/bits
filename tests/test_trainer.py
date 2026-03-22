@@ -1,8 +1,7 @@
 
 import torch
-import pytest
-from unittest.mock import MagicMock
 from torch.utils.data import Dataset
+from transformers import BertForTokenClassification
 
 from reveng_ml.model import get_model
 from reveng_ml.trainer import Trainer
@@ -139,5 +138,25 @@ def test_trainer_instruction_only(tmp_path):
 
     assert hasattr(trainer, 'inst_loss_fct')
     assert not hasattr(trainer, 'func_loss_fct')
+
+    trainer.train(epochs=1)
+
+def test_trainer_function_only(tmp_path):
+    """Trainer with task='function' uses BertForTokenClassification model and only sets up function loss."""
+    dataset = _make_dataset()
+    model = get_model(task="function")
+
+    assert isinstance(model, BertForTokenClassification)
+
+    trainer = Trainer(
+        model=model,
+        dataset=dataset,
+        batch_size=2,
+        model_dir=tmp_path / "models",
+        task="function",
+    )
+
+    assert not hasattr(trainer, 'inst_loss_fct')
+    assert hasattr(trainer, 'func_loss_fct')
 
     trainer.train(epochs=1)
