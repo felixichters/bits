@@ -105,8 +105,11 @@ def test_get_function_boundaries_missing_symtab(sample_binary, capsys):
         boundaries_eh_frame = get_function_boundaries_from_elf(Path(no_symtab_binary.name))
         boundaries_symtab = get_function_boundaries_from_elf(sample_binary)
 
-        # The function boundaries extracted from the .symtab and .eh_frame should be the same
-        assert boundaries_symtab == boundaries_eh_frame
+        # The function boundaries extracted from .symtab should also be in .eh_frame.
+        # eh_frame may have additional entries (for example PLT stubs) which is expected.
+        for offset, size in boundaries_symtab.items():
+            assert offset in boundaries_eh_frame
+            assert boundaries_eh_frame[offset] == size
 
 def test_get_instruction_boundaries(sample_binary):
     """Tests that instruction boundaries are extracted from an unstripped binary."""
@@ -128,6 +131,7 @@ def test_get_instruction_boundaries(sample_binary):
             if section.name == ".text":
                 text_offset = section.header['sh_offset']
                 break
+        assert text_offset is not None
 
     for func_offset in func_boundaries.keys():
         local = func_offset - text_offset

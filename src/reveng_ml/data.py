@@ -170,15 +170,14 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
             # .eh_frame fallback
             if not boundaries:
                 dwarf_info = elffile.get_dwarf_info()
-                plt_offset = elffile.get_section_by_name(".plt").header["sh_offset"]
                 if dwarf_info:
                     for entry in dwarf_info.EH_CFI_entries():
                         if not isinstance(entry, callframe.FDE):
                             continue
                         func_va = entry.header['initial_location']
                         func_size = entry.header['address_range']
-                        # Skip zero-size functions and PLT stub
-                        if func_size == 0 or plt_offset == func_va:
+                        # Skip zero-size functions
+                        if func_size == 0:
                             continue
                         file_offset = va_to_file_offset(func_va)
                         if file_offset is not None and 0 <= file_offset < len(file_bytes) and \
