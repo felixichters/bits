@@ -4,24 +4,30 @@ Evaluation script for the RevEng-ML project.
 import os.path
 import torch
 from sklearn.metrics import classification_report
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
 import pickle
 import subprocess
 from transformers import BertForTokenClassification
 
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.utils import get_pytorch_device
 
 import os
 from pathlib import Path
 
 class Evaluator:
-    """Evaluates a trained model"""
+    """Evaluates a trained model."""
 
-    def __init__(self, model: torch.nn.Module, dataset: Dataset, batch_size: int = 32, compare_xda: bool = False, task: str = "both"):
+    def __init__(self,
+                 model: torch.nn.Module,
+                 dataset: BinaryChunkDataset,
+                 batch_size: int = 32,
+                 compare_xda: bool = False,
+                 task: str = "both"):
         """
-        Creates a new Evaluator class
+        Creates a new Evaluator class.
 
         Args:
             model: Trained PyTorch model to evaluate
@@ -39,7 +45,7 @@ class Evaluator:
 
     def evaluate(self) -> str:
         """
-        Execute evaluation
+        Execute evaluation.
 
         Returns:
             A string containing the classification report(s) from scikit-learn
@@ -78,32 +84,34 @@ class Evaluator:
         print("Evaluation complete.")
 
         reports = []
+        report_xda = ""
 
-        if self.compare_xda:
+        if self.compare_xda: # pragma: no cover
             print("Starting xda evaluation...")
-            xdaDatasetInfoPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/dataset.info"))
-            xdaResultPath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
-            xdaExecutablePath = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/runInferXDA.sh"))
-            with open(xdaDatasetInfoPath,"wb") as f:
+            xda_dataset_info_path = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/dataset.info"))
+            xda_result_path = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
+            with open(xda_dataset_info_path,"wb") as f:
                 pickle.dump([os.path.abspath(self.dataset.data_path),self.dataset.chunk_size,self.dataset.stride],f,0)
 
             try:
-                subprocessResult=subprocess.run(["./src/reveng_ml/ComparativeEvaluation/runInferXDA.sh", str(xdaDatasetInfoPath),str(xdaResultPath)],shell=False,check=True,capture_output=True)
+                subprocess.run(["./src/reveng_ml/ComparativeEvaluation/runInferXDA.sh",
+                                str(xda_dataset_info_path), str(xda_result_path)],
+                               shell=False, check=True, capture_output=True)
             except subprocess.CalledProcessError as e:
-                print(f"Error using XDA to infer the dataset {xdaResultPath}: {e.stderr.decode().strip()}")
+                print(f"Error using XDA to infer the dataset {xda_result_path}: {e.stderr.decode().strip()}")
                 raise
 
-            with open(xdaResultPath,"rb") as f:
-                xdaResult = pickle.load(f)
-                xda_all_labels = xdaResult[0]
-                xda_all_preds = xdaResult[1]
+            with open(xda_result_path,"rb") as f:
+                xda_result = pickle.load(f)
+                xda_all_labels = xda_result[0]
+                xda_all_preds = xda_result[1]
 
             report_xda = classification_report(
                 xda_all_labels,
                 xda_all_preds,
                 target_names=['O', 'B-FUNC', 'E-FUNC'],
                 zero_division=0
-                )
+            )
 
         # Function boundary report
         if func_preds:
@@ -120,7 +128,7 @@ class Evaluator:
             e_count = sum(1 for l in func_labels if l == 2)
 
             print("\n--- Function Boundary Classification Report ---")
-            print(f"Class Distribution:")
+            print("Class Distribution:")
             print(f"  O (non-boundary): {o_count:,} ({100*o_count/total:.2f}%)")
             print(f"  B-FUNC: {b_count:,} ({100*b_count/total:.2f}%)")
             print(f"  E-FUNC: {e_count:,} ({100*e_count/total:.2f}%)")
@@ -150,7 +158,7 @@ class Evaluator:
             is_count = sum(1 for l in inst_labels if l == 1)
 
             print("\n--- Instruction Boundary Classification Report ---")
-            print(f"Class Distribution:")
+            print("Class Distribution:")
             print(f"  NOT-START: {ns_count:,} ({100*ns_count/total:.2f}%)")
             print(f"  INST-START: {is_count:,} ({100*is_count/total:.2f}%)")
             print(f"\n{report}")
@@ -164,7 +172,7 @@ class Evaluator:
             print("-----------------------------\n")
             reports.append(report)
 
-        if self.compare_xda:
+        if self.compare_xda: # pragma: no cover
             print("\n--- Classification Report XDA ---")
             print(report_xda)
             print("-----------------------------\n")

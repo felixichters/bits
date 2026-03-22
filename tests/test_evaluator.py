@@ -1,17 +1,18 @@
+from pathlib import Path
 
 import torch
-import pytest
-from unittest.mock import patch, MagicMock
-from torch.utils.data import Dataset
+from unittest.mock import patch
 
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.model import get_model, DualHeadOutput
 from reveng_ml.evaluate import Evaluator
 
 
-class _TinyEvalDataset(Dataset):
+class _TinyEvalDataset(BinaryChunkDataset):
     """Fixed chunks for evaluator tests, returns 3-tuples."""
 
     def __init__(self, num_chunks: int = 2, chunk_size: int = 16, num_func_labels: int = 3, num_inst_labels: int = 2):
+        super().__init__(data_path=Path())
         self.chunks = []
         for _ in range(num_chunks):
             data = torch.randint(0, 257, (chunk_size,), dtype=torch.long)
@@ -73,6 +74,30 @@ def test_evaluator_instruction_task():
         return DualHeadOutput(func_logits=None, inst_logits=inst_logits)
 
     evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="instruction")
+
+    with patch.object(evaluator.model, "forward", side_effect=fake_forward):
+        report = evaluator.evaluate()
+
+    assert isinstance(report, str)
+    assert len(report) > 0
+    assert "precision" in report.lower() or "recall" in report.lower()
+
+
+def test_evaluator_function_task():
+    """Evaluator with task='function' produces function boundary report."""
+    chunk_size = 16
+    dataset = _TinyEvalDataset(num_chunks=2, chunk_size=chunk_size)
+    model = get_model(task="function")
+
+    def fake_forward(*args, **kwargs):
+        batch_input = kwargs.get("input_ids", args[0] if args else None)
+        batch_size = batch_input.shape[0]
+        seq_len = batch_input.shape[1]
+        func_logits = torch.zeros(batch_size, seq_len, 3)
+        func_logits[:, :, 0] = 10.0
+        return DualHeadOutput(func_logits=func_logits, inst_logits=None)
+
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="function")
 
     with patch.object(evaluator.model, "forward", side_effect=fake_forward):
         report = evaluator.evaluate()

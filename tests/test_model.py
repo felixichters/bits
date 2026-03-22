@@ -1,9 +1,8 @@
 
 import torch
-import pytest
 from transformers import BertForTokenClassification
 
-from reveng_ml.model import get_model, DualHeadBertForTokenClassification, DualHeadOutput
+from reveng_ml.model import get_model, DualHeadBertForTokenClassification
 
 
 def test_get_model_default():

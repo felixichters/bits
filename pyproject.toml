@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "An ML pipeline to identify function boundaries in stripped binary files"
 
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1.0",
     "transformers>=4.35.0",
@@ -17,12 +17,66 @@ dependencies = [
     "pytest>=7.4.3",
     "ruff>=0.1.5",
     "pytest>=7.4.3",
+    "pytest-cov>=7.1.0"
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff>=0.1.5",
 ]
+
+[tool.coverage.run]
+omit = [
+    # Exclude the CLI and main entry point from coverage, as they are not easily testable
+    "src/reveng_ml/__init__.py",
+    "src/reveng_ml/__main__.py",
+    "src/reveng_ml/cli.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    # Allow to mark code paths as deprecated
+    'pragma: deprecated',
+    # Exclude error handling code that is impractical to test
+    'raise ValueError',
+    'except Exception',
+    'except FileNotFoundError',
+    'except subprocess.CalledProcessError',
+    'except ELFError'
+]
+
+[tool.ruff]
+include = ["pyproject.toml", "src/reveng_ml/*.py", "tests/*.py"]
+exclude = ["src/reveng_ml/ComparativeEvaluation/*.py"]
+line-length = 125
+
+[tool.ruff.lint]
+# Reference: https://docs.astral.sh/ruff/rules
+select = [
+    "D",
+    "E",
+    "F",
+    "B",
+    "SIM",
+    "PLE",
+    "FURB"
+]
+ignore = [
+    "E741", # Allow short variable names in some cases for readability
+    "B007",
+    "SIM118",
+    # Docstring rules
+    "D100", "D104", "D200", "D202", "D203",
+    "D205", "D212", "D401", "D413"
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore long lines in cli.py, it looks better to have the CLI help text formatted nicely in one line
+"cli.py" = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow default arguments like for CLI options
+extend-immutable-calls = ["typer.Option"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

@@ -7,21 +7,23 @@ from typing import Optional
 
 import torch
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 from transformers import get_linear_schedule_with_warmup, BertForTokenClassification
+
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.utils import get_pytorch_device
 from torch.nn.utils import clip_grad_norm_
 
 
 class Trainer:
-    """Trains a model using a dataset"""
+    """Trains a model using a dataset."""
 
     def __init__(
         self,
         model: torch.nn.Module,
-        dataset: Dataset,
+        dataset: BinaryChunkDataset,
         learning_rate: float = 5e-5,
         batch_size: int = 32,
         model_dir: Path = Path('./models'),
@@ -152,7 +154,7 @@ class Trainer:
 
 
     def save_model(self, filename: str = "reveng_model.bin"):
-        """Saves the model state"""
+        """Saves the model state."""
         os.makedirs(self.model_dir, exist_ok=True)
         save_path = self.model_dir / filename
         torch.save(self.model.state_dict(), save_path)

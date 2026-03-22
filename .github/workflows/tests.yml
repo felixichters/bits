@@ -1,0 +1,87 @@
+name: Run unit tests
+
+permissions:
+  checks: write
+  contents: write
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Workaround: Sometimes the pip package installation will fail due to insufficient disk space on the GitHub runner.
+      #             As a workaround, we free up some space of preinstalled stuff we don't need for our CI task.
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android # Android (~10GB)
+          sudo rm -rf /usr/local/julia* # Julia language (~1GB)
+          sudo rm -rf /usr/local/lib/node_modules # NodeJS (~0.8GB)
+
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Cache pip
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/pip
+            .venv
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml','**/requirements*.txt') }}-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip build setuptools wheel
+
+      - name: Install package & dependencies
+        run: |
+          pip install -e .
+
+      - name: Run unit tests
+        run: |
+          mkdir -p ci_artifacts
+          pytest -q --junitxml=ci_artifacts/junit.xml --cov=reveng_ml --cov-report=xml:ci_artifacts/coverage.xml
+        continue-on-error: false
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: pytest-artifacts
+          path: ci_artifacts
+
+      - name: Test & Coverage summary
+        id: pytest-coverage
+        if: always()
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-xml-coverage-path: ./ci_artifacts/coverage.xml
+          junitxml-path: ./ci_artifacts/junit.xml
+          hide-comment: true
+          hide-emoji: true
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: "Report: Unit tests"
+          path: ./ci_artifacts/junit.xml
+          reporter: java-junit
+
+      - name: Write coverage result summary
+        if: always()
+        env:
+          SUMMARY_REPORT: ${{ steps.pytest-coverage.outputs.summaryReport }}
+          COVERAGE_HTML: ${{ steps.pytest-coverage.outputs.coverageHtml }}
+        run: |
+          echo -e "\n\n\n" >> $GITHUB_STEP_SUMMARY
+          echo "$COVERAGE_HTML" >> $GITHUB_STEP_SUMMARY

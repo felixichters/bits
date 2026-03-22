@@ -1,5 +1,5 @@
 """
-Command-line interface
+Command-line interface.
 """
 import typer
 from pathlib import Path
@@ -37,7 +37,7 @@ def split_dataset(
         )
     except ValueError as e:
         print(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     print(f"Moved {counts['train']} files  -> {train_dir}")
     print(f"Moved {counts['test']} files  -> {test_dir}")
@@ -49,13 +49,13 @@ def create_dataset(
     data_path: Path = typer.Option("data/train/default", "--input-dir", "-d" , help="Input Directory; all files inside will be included in the resulting dataset file"),
     chunk_size: int = typer.Option(510, "--chunk-size", "-c" , help="Size Of Chunk to be fed into model at a time"),
     stride: int = typer.Option(255, "--stride", "-s", help="Amount of stride (overlap with previous and following chunk)"),
-    onlyDotText: bool = typer.Option(True, "--only-text", "-t", help="Wether the whole binary or only the .text section get used"),
+    only_dot_text: bool = typer.Option(True, "--only-text", "-t", help="Whether the whole binary or only the .text section get used"),
     result_path: Path = typer.Option("data/default.dataset", "--output-path", "-o", help="Resulting dataset file path"),
     task: str = typer.Option("both", "--task", help="Task: 'function', 'instruction', or 'both'"),
     arch: str = typer.Option("x86_64", "--arch", help="Architecture for instruction disassembly: 'x86_64', 'x86_32', 'arm'"),
 ):
     """
-    Create new dataset file from executabes inside given directory
+    Create new dataset file from executables inside given directory.
     """
     if not data_path.exists() or not any(data_path.iterdir()):
         print(f"Error: Training data directory '{data_path}' is empty or does not exist.")
@@ -63,7 +63,15 @@ def create_dataset(
 
     # Load training data
     print(f"Loading data from {data_path}...")
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, onlyIncludeCodeSegment=onlyDotText, task=task, arch=arch)
+    dataset = BinaryChunkDataset(
+        data_path=data_path,
+        chunk_size=chunk_size,
+        stride=stride,
+        only_include_code_segment=only_dot_text,
+        task=task,
+        arch=arch
+    )
+
     if not dataset:
         print("Warning: The dataset is empty.")
         raise typer.Exit()
@@ -103,8 +111,19 @@ def train(
 
     print("Initializing model...")
     model = get_model(task=task)
+
     # Train
-    trainer = Trainer(model, dataset, learning_rate=learning_rate, batch_size=batch_size, model_dir=model_dir, class_weight_boundary=class_weight_boundary, task=task, inst_loss_weight=inst_loss_weight)
+    trainer = Trainer(
+        model,
+        dataset,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        model_dir=model_dir,
+        class_weight_boundary=class_weight_boundary,
+        task=task,
+        inst_loss_weight=inst_loss_weight
+    )
+
     trainer.train(epochs=epochs)
 
     # Save
@@ -126,13 +145,22 @@ def evaluate(
     """
     Evaluate a trained model on a test dataset.
     """
-    print(f"Starting evaluation process...")
+    print("Starting evaluation process...")
 
     if not model_path.exists():
         print(f"Error: Model file not found at '{model_path}'.")
         raise typer.Exit(code=1)
 
-    dataset = BinaryChunkDataset(data_path=data_path, chunk_size=chunk_size, stride=stride, randomizeFileOrder=False, for_evaluation=True, task=task, arch=arch)
+    dataset = BinaryChunkDataset(
+        data_path=data_path,
+        chunk_size=chunk_size,
+        stride=stride,
+        randomize_file_order=False,
+        for_evaluation=True,
+        task=task,
+        arch=arch
+    )
+
     if not dataset:
         print("Warning: The test dataset is empty. No evaluation will be performed.")
         raise typer.Exit()
@@ -149,7 +177,7 @@ def evaluate(
     # Evaluate
     evaluator = Evaluator(model, dataset, batch_size=batch_size, compare_xda=compare_xda, task=task)
     evaluator.evaluate()
-    print(f"Evaluation complete.")
+    print("Evaluation complete.")
 
 
 if __name__ == "__main__":

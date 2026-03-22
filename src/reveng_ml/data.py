@@ -20,7 +20,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def _extract_repo_name(filename: str) -> str:
-    """Extract the repo name from a binary filename, stripping compiler config prefixes.
+    """
+    Extract the repo name from a binary filename, stripping compiler config prefixes.
 
     Examples:
         'gcc_O2_author_repo_executable0' -> 'author_repo'
@@ -43,7 +44,7 @@ def split_dataset_files(
     test_dir: Path,
     test_ratio: float = 0.2,
     seed: int = 42,
-):
+) -> dict[str, int]:
     """
     Splits binary files into train/test directories, grouping by source repo.
 
@@ -62,7 +63,7 @@ def split_dataset_files(
 
     # Group files by repo name
     from collections import defaultdict
-    repo_files = defaultdict(list)
+    repo_files: dict[str, list[Path]] = defaultdict(list[Path])
     for f in files:
         repo = _extract_repo_name(f.name)
         repo_files[repo].append(f)
@@ -86,7 +87,7 @@ def split_dataset_files(
         "test":  (test_dir,  [f for r in test_repos  for f in repo_files[r]]),
     }
 
-    counts = {}
+    counts: dict[str, int] = {}
     for split_name, (out_dir, split_files) in splits.items():
         out_dir.mkdir(parents=True, exist_ok=True)
         for f in split_files:
@@ -106,11 +107,16 @@ def strip_elf_debug_sections(file_path: Path, output_path: Path):
         file_path (Path): Input ELF file path.
         output_path (Path): Output ELF file path without debug sections.
     """
+    run_strip_command(['--strip-debug', '-o', str(output_path), str(file_path)])
+
+def run_strip_command(args: list[str]):
+    """
+    Helper function to run the external 'strip' command with specified arguments and print errors.
+    """
     try:
-        subprocess.run(['strip', '--strip-debug', '-o', str(output_path), str(file_path)],
-                       check=True, capture_output=True)
+        subprocess.run(['strip'] + args, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error stripping debug sections from {file_path}: {e.stderr.decode().strip()}")
+        print(f"Error stripping symbols '{args}': {e.stderr.decode().strip()}")
         raise
     except FileNotFoundError:
         print("The 'strip' command-line tool is not installed on this system.")
@@ -132,7 +138,7 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
         with open(file_path, 'rb') as f:
             file_bytes = f.read()
 
-        with BytesIO(file_bytes) as stream:
+        with (BytesIO(file_bytes) as stream):
             elffile = ELFFile(stream)
 
             va_to_offset_map = []
@@ -158,8 +164,8 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
                             and sym['st_size'] > 0
                             and sym['st_value'] != 0):
                         file_offset = va_to_file_offset(sym['st_value'])
-                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
-                            if file_offset not in boundaries or sym['st_size'] > boundaries[file_offset]:
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes) and \
+                             (file_offset not in boundaries or sym['st_size'] > boundaries[file_offset]):
                                 boundaries[file_offset] = sym['st_size']
 
             # .eh_frame fallback
@@ -171,11 +177,12 @@ def get_function_boundaries_from_elf(file_path: Path) -> dict[int, int]:
                             continue
                         func_va = entry.header['initial_location']
                         func_size = entry.header['address_range']
+                        # Skip zero-size functions
                         if func_size == 0:
                             continue
                         file_offset = va_to_file_offset(func_va)
-                        if file_offset is not None and 0 <= file_offset < len(file_bytes):
-                            if file_offset not in boundaries or func_size > boundaries[file_offset]:
+                        if file_offset is not None and 0 <= file_offset < len(file_bytes) and \
+                             (file_offset not in boundaries or func_size > boundaries[file_offset]):
                                 boundaries[file_offset] = func_size
 
             if not boundaries:
@@ -216,8 +223,8 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
             if text_section is None:
                 return set()
 
-            text_bytes = text_section.data()
-            text_vaddr = text_section.header['sh_addr']
+            text_bytes: bytes = text_section.data()
+            text_vaddr: int = text_section.header['sh_addr']
 
             if arch == "x86_64":
                 md = Cs(CS_ARCH_X86, CS_MODE_64)
@@ -228,7 +235,7 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
             else:
                 raise ValueError(f"Unsupported architecture: {arch}")
 
-            inst_starts = set()
+            inst_starts = set[int]()
             for insn in md.disasm(text_bytes, text_vaddr):
                 local_offset = insn.address - text_vaddr
                 inst_starts.add(local_offset)
@@ -240,22 +247,28 @@ def get_instruction_boundaries_from_elf(file_path: Path, arch: str = "x86_64") -
         return set()
 
 
-class BinaryChunkDataset(Dataset):
+class BinaryChunkDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
     """
     PyTorch Dataset for binary files.
 
     This dataset represents binary files from a directory, and their extracted function boundaries
     to create labels, and provides chunks of the binary and corresponding labels for training.
     """
-    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomizeFileOrder=True, onlyIncludeCodeSegment=True, for_evaluation=False, task="both", arch="x86_64"):
+
+    def __init__(self, data_path: Path, chunk_size=510, stride=255, randomize_file_order=True,
+                 only_include_code_segment=True, for_evaluation=False, task="both", arch="x86_64"):
         """
+        Create a new BinaryChunkDataset from a directory of unstripped binary files or a pre-chunked dataset file.
+
         Args:
             data_path (Path): Directory containing the *unstripped* binary files or path to dataset file.
             chunk_size (int): The size of each data chunk.
             stride (int): The step size to move when creating overlapping chunks.
-            for_evaluation (bool): Use non-overlapping Chunks
-            task (str): "function", "instruction", or "both"
-            arch (str): Architecture for instruction disassembly: "x86_64", "x86_32", "arm"
+            randomize_file_order (bool): Whether to randomize the order of files when creating chunks.
+            only_include_code_segment (bool): Whether to use only the .text section or the whole binary.
+            for_evaluation (bool): Use non-overlapping chunks.
+            task (str): "function", "instruction", or "both".
+            arch (str): Architecture for instruction disassembly: "x86_64", "x86_32", "arm"..
         """
         self.task = task
         self.arch = arch
@@ -267,7 +280,7 @@ class BinaryChunkDataset(Dataset):
                     self.data_path = dataset[0]
                     self.chunk_size = dataset[1]
                     self.stride = dataset[2]
-                    self.onlyDotText = dataset[3]
+                    self.only_dot_text = dataset[3]
                     self.files = dataset[4]
                     if len(dataset) >= 6:
                         self.task = dataset[5]
@@ -281,7 +294,7 @@ class BinaryChunkDataset(Dataset):
                     )
                 with open(str(data_path) + ".np","rb") as f:
                     loaded = numpy.load(f, allow_pickle=True)
-                    if len(loaded[0]) == 2:
+                    if len(loaded[0]) == 2: # pragma: deprecated
                         # Old format: (data, func_labels) — add zero inst_labels
                         self.chunks = [
                             (torch.tensor(pair[0]), torch.tensor(pair[1]),
@@ -301,9 +314,9 @@ class BinaryChunkDataset(Dataset):
             self.chunk_size = chunk_size
             self.stride = chunk_size if for_evaluation else stride
             self.chunks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
-            self.onlyDotText = onlyIncludeCodeSegment
+            self.only_dot_text = only_include_code_segment
 
-            self.files = []
+            self.files: list[Path] = []
             print("Scanning input files for dataset in directory:", data_path)
             lst = os.listdir(data_path)
             number_files = len(lst)
@@ -314,33 +327,32 @@ class BinaryChunkDataset(Dataset):
                     self.files.append(f)
 
             # Randomize file order
-            if randomizeFileOrder:
+            if randomize_file_order:
                 shuffle(self.files)
             self._create_chunks()
 
-    def _create_chunks_for_file_threaded(self, file_path):
-
-        local_chunks = []
+    def _create_chunks_for_file_threaded(self, file_path: Path) -> list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+        local_chunks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
 
         # Extract boundaries from the unstripped binary
         boundaries = get_function_boundaries_from_elf(file_path)
 
         # Extract instruction boundaries if needed
-        inst_starts = set()
+        inst_starts = set[int]()
         if self.task in ("instruction", "both"):
             inst_starts = get_instruction_boundaries_from_elf(file_path, arch=self.arch)
 
         # Strip debug sections and read stripped bytes
-        textSectionOffset = 0
-        textSectionSize = 0
+        text_section_offset = 0
+        text_section_size = 0
 
-        if self.onlyDotText == False:
+        if not self.only_dot_text:
             with TemporaryDirectory() as tmpdir:
                 stripped_path = Path(tmpdir) / "stripped_binary"
                 strip_elf_debug_sections(file_path, stripped_path)
                 with open(stripped_path, 'rb') as f:
                     stripped_file_bytes = f.read()
-                textSectionSize = len(stripped_file_bytes)
+                text_section_size = len(stripped_file_bytes)
         else:
             stripped_file_bytes = b''
 
@@ -351,22 +363,22 @@ class BinaryChunkDataset(Dataset):
                     elffile = ELFFile(stream)
                     for section in elffile.iter_sections():
                         if section.name == ".text":
-                            textSectionOffset = section.header['sh_offset']
-                            textSectionSize = section.header['sh_size']
+                            text_section_offset = section.header['sh_offset']
+                            text_section_size = section.header['sh_size']
                             stripped_file_bytes = section.data()
                             break
             except Exception as e:
                 raise e
 
-        if not stripped_file_bytes:
+        if not stripped_file_bytes: # pragma: no cover
             print(f"Skipping {file_path.name}: No .text section or bytes found.")
             return []
 
-        if not boundaries and self.task in ("function", "both"):
+        if not boundaries and self.task in ("function", "both"): # pragma: no cover
             print(f"Skipping {file_path.name}: No valid function boundaries found.")
             return []
 
-        if not inst_starts and self.task == "instruction":
+        if not inst_starts and self.task == "instruction": # pragma: no cover
             print(f"Skipping {file_path.name}: No valid instruction boundaries found.")
             return []
 
@@ -377,15 +389,15 @@ class BinaryChunkDataset(Dataset):
             # Mark all E-FUNC endings first
             for (offset, size) in boundaries.items():
                 end_offset = offset + size - 1
-                if textSectionOffset <= end_offset < textSectionOffset + textSectionSize:
-                    local_end = end_offset - textSectionOffset
+                if text_section_offset <= end_offset < text_section_offset + text_section_size:
+                    local_end = end_offset - text_section_offset
                     if local_end < len(func_labels):
                         func_labels[local_end] = 2  # E-FUNC
 
             # Mark all B-FUNC starts second
             for (offset, size) in boundaries.items():
-                if textSectionOffset <= offset < textSectionOffset + textSectionSize:
-                    local_offset = offset - textSectionOffset
+                if text_section_offset <= offset < text_section_offset + text_section_size:
+                    local_offset = offset - text_section_offset
                     if local_offset < len(func_labels):
                         func_labels[local_offset] = 1  # B-FUNC
 
@@ -447,7 +459,8 @@ class BinaryChunkDataset(Dataset):
                 except Exception as e:
                     print(f"Warning: skipping file due to error: {e}")
 
-        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and {self.stride} stride.(only using text section: {self.onlyDotText})")
+        print(f"Chunked files into {len(self.chunks)} chunks with {self.chunk_size}-sized chunks and "
+              f"{self.stride} stride. (only using text section: {self.only_dot_text})")
 
     def get_label_counts(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns (func_counts[3], inst_counts[2]) tensors of per-class label counts."""
@@ -461,17 +474,23 @@ class BinaryChunkDataset(Dataset):
         return func_counts, inst_counts
 
     def __len__(self) -> int:
+        """Returns the number of chunks in the dataset."""
         return len(self.chunks)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns the (data, func_labels, inst_labels) tuple for the chunk at index idx."""
         return self.chunks[idx]
 
     def save(self, result_path: Path):
+        """Saves the dataset to a file for later loading."""
         try:
             with open(result_path,"wb") as f:
-                pickle.dump([self.data_path, self.chunk_size, self.stride, self.onlyDotText, self.files, self.task, self.arch],f)
+                pickle.dump(
+                    [self.data_path, self.chunk_size, self.stride, self.only_dot_text, self.files, self.task, self.arch],
+                    f
+                )
             with open(str(result_path) + ".np","wb") as f:
-                numpy.save(f,self.chunks)
+                numpy.save(f, self.chunks)
         except Exception as e:
             print(e)
             raise e

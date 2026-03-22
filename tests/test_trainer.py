@@ -1,19 +1,27 @@
+from pathlib import Path
 
 import torch
-import pytest
-from unittest.mock import MagicMock
-from torch.utils.data import Dataset
+from transformers import BertForTokenClassification
 
+from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.model import get_model
 from reveng_ml.trainer import Trainer
 
 
-class _TinyDataset(Dataset):
+class _TinyDataset(BinaryChunkDataset):
     """Minimal in-memory dataset with controllable label counts."""
 
-    def __init__(self, func_label_counts: torch.Tensor, inst_label_counts: torch.Tensor = None, num_chunks: int = 4, chunk_size: int = 16):
+    def __init__(
+            self,
+            func_label_counts: torch.Tensor,
+            inst_label_counts: torch.Tensor | None = None,
+            num_chunks: int = 4,
+            chunk_size: int = 16
+    ):
+        super().__init__(data_path=Path())
         self._func_label_counts = func_label_counts
-        self._inst_label_counts = inst_label_counts if inst_label_counts is not None else torch.tensor([100, 20], dtype=torch.long)
+        self._inst_label_counts = inst_label_counts if inst_label_counts is not None \
+            else torch.tensor([100, 20], dtype=torch.long)
         self.chunks = []
         for _ in range(num_chunks):
             data = torch.randint(0, 257, (chunk_size,), dtype=torch.long)
@@ -139,5 +147,25 @@ def test_trainer_instruction_only(tmp_path):
 
     assert hasattr(trainer, 'inst_loss_fct')
     assert not hasattr(trainer, 'func_loss_fct')
+
+    trainer.train(epochs=1)
+
+def test_trainer_function_only(tmp_path):
+    """Trainer with task='function' uses BertForTokenClassification model and only sets up function loss."""
+    dataset = _make_dataset()
+    model = get_model(task="function")
+
+    assert isinstance(model, BertForTokenClassification)
+
+    trainer = Trainer(
+        model=model,
+        dataset=dataset,
+        batch_size=2,
+        model_dir=tmp_path / "models",
+        task="function",
+    )
+
+    assert not hasattr(trainer, 'inst_loss_fct')
+    assert hasattr(trainer, 'func_loss_fct')
 
     trainer.train(epochs=1)
