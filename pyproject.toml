@@ -45,6 +45,31 @@ exclude_also = [
     'except ELFError'
 ]
 
+[tool.ruff]
+include = ["pyproject.toml", "src/reveng_ml/*.py", "tests/*.py"]
+exclude = ["src/reveng_ml/ComparativeEvaluation/*.py"]
+line-length = 120
+
+[tool.ruff.lint]
+# Reference: https://docs.astral.sh/ruff/rules
+select = [
+    "E",
+    "F",
+    "B",
+    "SIM",
+    "PLE",
+    "FURB"
+]
+ignore = [
+    "E741", # Allow short variable names in some cases for readability
+    "B007",
+    "SIM118",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow default arguments like for CLI options
+extend-immutable-calls = ["typer.Option"]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
