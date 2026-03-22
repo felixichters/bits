@@ -46,7 +46,6 @@ def parse_sources(text: str) -> list[dict]:
                 current = {}
             continue
         if line.startswith(" ") or line.startswith("\t"):
-            # Continuation of previous field
             if current and "_last_key" in current:
                 current[current["_last_key"]] += "\n" + line
             continue
@@ -60,7 +59,6 @@ def parse_sources(text: str) -> list[dict]:
     if current:
         packages.append(current)
 
-    # Clean up _last_key
     for pkg in packages:
         pkg.pop("_last_key", None)
 
@@ -72,14 +70,12 @@ def is_c_cpp_package(pkg: dict) -> bool:
     build_deps = pkg.get("Build-Depends", "") + pkg.get("Build-Depends-Indep", "")
     build_deps_lower = build_deps.lower()
 
-    # Must depend on a C/C++ build tool
     c_indicators = [
         "gcc", "g++", "clang", "cmake", "autoconf", "automake",
-        "libtool", "meson", "debhelper",  # debhelper often implies C builds
+        "libtool", "meson", "debhelper",
     ]
     has_c_build = any(ind in build_deps_lower for ind in c_indicators)
 
-    # Filter out packages that are clearly not C/C++
     pkg_name = pkg.get("Package", "").lower()
     exclude_patterns = [
         "python-", "ruby-", "node-", "golang-", "haskell-",
@@ -144,66 +140,51 @@ def download_and_extract_package(
                 if filename.endswith(".dsc"):
                     dsc_url = url
 
-    if not dsc_url:
-        print(f"  [error] No .dsc file found for {pkg_name}")
-        return False
-
-    # Create temp download directory
     dl_dir = work_dir / pkg_name
     dl_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        # Download all source files
-        dsc_path = None
+        # Only download .orig.tar.* files, skip .dsc and .debian.tar.*
+        orig_tarballs = []
         for filename, url in file_urls:
-            local_path = dl_dir / filename
-            if local_path.exists():
-                if filename.endswith(".dsc"):
-                    dsc_path = local_path
+            if ".orig.tar." not in filename:
                 continue
-            try:
-                urlretrieve(url, local_path)
-                if filename.endswith(".dsc"):
-                    dsc_path = local_path
-            except Exception as e:
-                print(f"  [error] Failed to download {filename}: {e}")
-                return False
+            local_path = dl_dir / filename
+            if not local_path.exists():
+                try:
+                    urlretrieve(url, local_path)
+                except Exception as e:
+                    print(f"  [error] Failed to download {filename}: {e}")
+                    continue
+            orig_tarballs.append(local_path)
 
-        if not dsc_path:
-            print(f"  [error] .dsc file not downloaded for {pkg_name}")
+        if not orig_tarballs:
+            print(f"  [error] No .orig.tar.* found for {pkg_name}")
             return False
 
-        # Extract with dpkg-source
+        # Extract tarballs
         dest.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(
-            ["dpkg-source", "-x", "--no-check", str(dsc_path), str(dest)],
-            capture_output=True,
-            text=True,
-            errors="ignore",
-            timeout=120,
-            cwd=dl_dir,
-        )
+        extracted = False
+        for tarball in orig_tarballs:
+            try:
+                result = subprocess.run(
+                    ["tar", "xf", str(tarball), "--strip-components=1", "-C", str(dest)],
+                    capture_output=True,
+                    text=True,
+                    errors="ignore",
+                    timeout=120,
+                )
+                if result.returncode == 0:
+                    extracted = True
+                else:
+                    print(f"  [warn] tar failed for {tarball.name}: {result.stderr[:200]}")
+            except Exception as e:
+                print(f"  [warn] tar failed for {tarball.name}: {e}")
 
-        if result.returncode != 0:
-            # Fallback: try manual extraction of .orig.tar.* files
-            extracted = False
-            for filename, _ in file_urls:
-                if ".orig.tar." in filename:
-                    tarball = dl_dir / filename
-                    if tarball.exists():
-                        try:
-                            subprocess.run(
-                                ["tar", "xf", str(tarball), "--strip-components=1", "-C", str(dest)],
-                                capture_output=True,
-                                timeout=120,
-                            )
-                            extracted = True
-                        except Exception:
-                            pass
-            if not extracted:
-                print(f"  [error] dpkg-source failed for {pkg_name}: {result.stderr[:300]}")
-                shutil.rmtree(dest, ignore_errors=True)
-                return False
+        if not extracted:
+            print(f"  [error] Failed to extract any tarball for {pkg_name}")
+            shutil.rmtree(dest, ignore_errors=True)
+            return False
 
         return True
 
@@ -212,7 +193,6 @@ def download_and_extract_package(
         shutil.rmtree(dest, ignore_errors=True)
         return False
     finally:
-        # Clean up downloaded files
         shutil.rmtree(dl_dir, ignore_errors=True)
 
 
@@ -230,12 +210,10 @@ def main():
     work_dir = args.work_dir or Path(tempfile.mkdtemp(prefix="debian_dl_"))
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # Fetch and parse Sources index
     sources_text = fetch_sources_index(args.mirror_url, args.suite, args.component)
     all_packages = parse_sources(sources_text)
     print(f"Parsed {len(all_packages)} total source packages")
 
-    # Filter for C/C++ packages
     c_packages = [p for p in all_packages if is_c_cpp_package(p)]
     print(f"Filtered to {len(c_packages)} C/C++ packages")
 
@@ -254,7 +232,6 @@ def main():
         else:
             fail_count += 1
 
-    # Cleanup work dir
     if args.work_dir is None:
         shutil.rmtree(work_dir, ignore_errors=True)
 
