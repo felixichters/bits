@@ -57,15 +57,15 @@ uv run python -m reveng_ml train --data-path <train-dir> --model-dir <model-dir>
 
 **Key training options:**
 
-| Option | Default | Description |
-|---|---|---|
-| `--task` | `both` | `function`, `instruction`, or `both` |
-| `--epochs` | `3` | Number of training epochs |
-| `--batch-size` | `32` | Samples per batch |
-| `--lr` | `5e-5` | Learning rate |
-| `--class-weight` | auto | Weight for boundary classes (B-FUNC, E-FUNC). If unset, computed from label distribution |
-| `--inst-loss-weight` | `1.0` | Weight of instruction loss relative to function loss |
-| `--arch` | `x86_64` | Architecture for disassembly: `x86_64`, `x86_32`, `arm` |
+| Option               | Default  | Description                                                                              |
+|----------------------|----------|------------------------------------------------------------------------------------------|
+| `--task`             | `both`   | `function`, `instruction`, or `both`                                                     |
+| `--epochs`           | `3`      | Number of training epochs                                                                |
+| `--batch-size`       | `32`     | Samples per batch                                                                        |
+| `--lr`               | `5e-5`   | Learning rate                                                                            |
+| `--class-weight`     | auto     | Weight for boundary classes (B-FUNC, E-FUNC). If unset, computed from label distribution |
+| `--inst-loss-weight` | `1.0`    | Weight of instruction loss relative to function loss                                     |
+| `--arch`             | `x86_64` | Architecture for disassembly: `x86_64`, `x86_32`, `arm`                                  |
 
 ### 4. Evaluate
 
@@ -83,3 +83,72 @@ uv run python -m reveng_ml evaluate --model-path <model>.bin --data-path <test-d
 ```bash
 uv run pytest
 ```
+
+## Architecture Overview
+
+Overview of important files and directories in the project structure:
+
+| File                                   | Description                                                                                                                                                                         |
+|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `evals/`                               | Directory containing textual logs, metrics, and evaluation results from previous model training runs.                                                                               |
+| `jobs/`                                | Directory containing shell scripts (such as SLURM batch scripts) used to configure and run large-scale model training jobs on computing clusters.                                   |
+| `src/reveng_ml/cli.py`                 | Main command-line interface. This is the primary entrypoint for our application to trigger dataset creation, training, and evaluation.                                              |
+| `src/reveng_ml/data.py`                | Handles raw ELF parsing via `pyelftools` to extract function boundaries, disassembly via Capstone to extract instruction boundaries, and slicing binaries into overlapping chunks.  |
+| `src/reveng_ml/evaluate.py`            | Evaluates the trained model against the test dataset, generating Scikit-Learn classification reports and confusion matrices for both instruction and function boundary predictions. |
+| `src/reveng_ml/model.py`               | Contains the `DualHeadBertForTokenClassification` PyTorch model definition and the `DualHeadOutput` data structure.                                                                 |
+| `src/reveng_ml/trainer.py`             | The PyTorch training loop handling data batching, weighted multi-task loss computation, etc.                                                                                        |
+| `src/reveng_ml/ComparativeEvaluation/` | Contains scripts to evaluate our model against the XDA baseline, generating comparative classification reports and confusion matrices.                                              |
+| `scripts/legacy/`                      | Contains the legacy data processor pipeline used to process huge Google BigQuery GitHub exports.                                                                                    |
+| `scripts/pipeline/`                    | Contains scripts for the new pipeline to download and compile C/C++ packages across various compiler optimizations from public sources (Debian, GNU, TheStack).                     |
+| `tests/`                               | Directory containing the `pytest` suite for unit testing components like models, data handlers, and training loops.                                                                 |
+
+
+### Data Collection
+
+The project used automated pipelines to gather and compile C/C++ source code into binary executables to serve as training data.
+
+**Google BigQuery Pipeline:** The Google BigQuery GitHub public dataset was used initially to aquire training data on a large scale. 
+After creating a new Google Cloud account, the user has 300 EUR in free credits, which is sufficient to run our BigQuery SQL script on the entire public GitHub dataset. 
+We collected about 700GB of compressed C code from GitHub via BigQuery.
+The SQL script is located at `scripts/legacy/BigQuery_GitHub_C.sql` and collects all C source files and header files, along with their corresponding repository names and paths.
+The `CompilePipeline.py` script processes large `.tar.gz` JSON dumps exported from BigQuery in chunks to handle disk and memory constraints. 
+It sequentially extracts source files, attempts to compile them, and tracks progress in a `pipeline_state.json` file, so the process can be safely paused and resumed.
+Our collection of all binaries that compiled successfully is available on [HeiBox (total 1.8GB)](https://heibox.uni-heidelberg.de/d/c792e037da654e528cd3/).
+
+**Current Pipeline:** The new pipeline pulls and compiles packages from sources like Debian, GNU, and [TheStack dataset](https://huggingface.co/datasets/bigcode/the-stack). 
+It parallelizes compilation across a matrix of configurations (`gcc` and `clang` with optimization levels `O0` to `O3`), and organizes the resulting binaries in a structured directory format.
+This pipeline is designed to run on the BwUniCluster and provides SLURM batch scripts for easy deployment.
+
+### Machine Learning Pipeline
+Our ML pipeline is executed using our CLI (`uv run python -m reveng_ml`). Various subcommands trigger different stages of the pipeline.
+
+#### Dataset Splitting (`split-dataset`)
+
+Separates raw binaries into `train/` and `test/` directories, grouped by repository (so GCC and Clang versions of the same file stay in the same split).
+
+#### Dataset Creation (`create-dataset`)
+
+*   Reads unstripped ELF binaries and determines function boundaries and instruction boundaries.
+    * Ground truth for function boundaries is detected using the `.symtab` section of the ELF. As a fall-back, we also support reading DWARF info from the `.eh_frame` section if `.symtab` is not available. Instruction boundaries are extracted using Capstone.
+    * Labels for function boundaries: `O` (Other), `B-FUNC` (Begin), `E-FUNC` (End).
+    * Labels for instruction boundaries: `NOT-START`, `INST-START`.
+*   Calls `strip` to remove symbols.
+*   Chunks `.text` section of the stripped binary into overlapping sequences for training (default: 510 bytes per chunk, stride 255 bytes).
+*   Saves the dataset as a file.
+
+#### Training (`train`)
+
+The training loop uses the `AdamW` optimizer with a linear learning rate scheduler (including a warmup phase), to ensure stable gradient descent in the early epochs. 
+During each forward pass, the trainer computes a loss function that aggregates the cross-entropy loss from both the function and instruction classification heads. 
+Because classifying boundary tokens introduces a large class imbalance against the standard byte tokens, the trainer automatically computes dynamic class weights by default, although it also allows for manual weight configuration via a command-line argument.
+The balance between the two learning tasks is controlled via an instruction loss weight parameter. Tweaking this parameter forces the optimizer to 
+prioritize instruction mapping over function mapping, or the other way around.
+`clip_grad_norm` is applied to the backward pass to prevent exploding gradients by clipping the maximum value of the gradients to 1.0.
+
+#### Evaluation (`evaluate`)
+
+Runs inference over the test dataset, outputting precision, recall, F1-scores, confusion matrices, and class distributions.
+
+
+See the [evals directory](evals/) for logs and results from previous training runs.
+
