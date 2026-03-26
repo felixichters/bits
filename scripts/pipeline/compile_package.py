@@ -122,8 +122,8 @@ def build_autoconf(source_dir: Path, build_dir: Path, env: dict, timeout: int) -
     """Build with autoconf/configure."""
     build_dir.mkdir(parents=True, exist_ok=True)
 
-    # Run autoreconf if configure doesn't exist but configure.ac does
-    if not (source_dir / "configure").exists() and (source_dir / "configure.ac").exists():
+    # Run autoreconf if configure.ac exists to ensure build files match current automake version
+    if (source_dir / "configure.ac").exists():
         ok, err = run_cmd(
             ["autoreconf", "-fi"],
             cwd=source_dir,

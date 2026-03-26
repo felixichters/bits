@@ -13,16 +13,11 @@ This multi-task dual-head architecture follows the approach of [XDA](https://arx
 
 Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` ELF sections. Ground truth for instruction boundaries is obtained by linearly disassembling the `.text` section with [Capstone](https://www.capstone-engine.org/).
 
-## Setup
-
-You will need [uv](https://github.com/astral-sh/uv). To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
-```bash
-./XDASetup.sh
-```
-
 ## Usage
 
-Run using `uv`. Dependencies will be installed automatically by `uv`.
+([Download](https://huggingface.co/dop32/models) our models)
+
+Run using [uv](https://github.com/astral-sh/uv). Dependencies will be installed automatically by `uv`.
 
 ```bash
 # show all cli commands
@@ -117,7 +112,6 @@ Our collection of all binaries that compiled successfully is available on [HeiBo
 
 **Current Pipeline:** The new pipeline pulls and compiles packages from sources like Debian, GNU, and [TheStack dataset](https://huggingface.co/datasets/bigcode/the-stack). 
 It parallelizes compilation across a matrix of configurations (`gcc` and `clang` with optimization levels `O0` to `O3`), and organizes the resulting binaries in a structured directory format.
-This pipeline is designed to run on the BwUniCluster and provides SLURM batch scripts for easy deployment.
 
 ### Machine Learning Pipeline
 Our ML pipeline is executed using our CLI (`uv run python -m reveng_ml`). Various subcommands trigger different stages of the pipeline.
