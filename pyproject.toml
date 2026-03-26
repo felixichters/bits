@@ -79,12 +79,12 @@ ignore = [
 extend-immutable-calls = ["typer.Option"]
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu128" }
+torch = { index = "pytorch-cu121" }
 
 [build-system]
 requires = ["setuptools>=61.0"]
