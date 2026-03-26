@@ -1,21 +1,15 @@
 """
 Evaluation script for the RevEng-ML project.
 """
-import os.path
 import torch
 from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 from tqdm import tqdm
-import pickle
-import subprocess
 from transformers import BertForTokenClassification
 
 from reveng_ml.data import BinaryChunkDataset
 from reveng_ml.utils import get_pytorch_device
-
-import os
-from pathlib import Path
 
 class Evaluator:
     """Evaluates a trained model."""
@@ -87,24 +81,10 @@ class Evaluator:
         report_xda = ""
 
         if self.compare_xda: # pragma: no cover
-            print("Starting xda evaluation...")
-            xda_dataset_info_path = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/dataset.info"))
-            xda_result_path = os.path.abspath(Path("src/reveng_ml/ComparativeEvaluation/XDA/result.inferred"))
-            with open(xda_dataset_info_path,"wb") as f:
-                pickle.dump([os.path.abspath(self.dataset.data_path),self.dataset.chunk_size,self.dataset.stride],f,0)
+            from reveng_ml.ComparativeEvaluation.InferXDA import infer_xda
 
-            try:
-                subprocess.run(["./src/reveng_ml/ComparativeEvaluation/runInferXDA.sh",
-                                str(xda_dataset_info_path), str(xda_result_path)],
-                               shell=False, check=True, capture_output=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Error using XDA to infer the dataset {xda_result_path}: {e.stderr.decode().strip()}")
-                raise
-
-            with open(xda_result_path,"rb") as f:
-                xda_result = pickle.load(f)
-                xda_all_labels = xda_result[0]
-                xda_all_preds = xda_result[1]
+            print("Running XDA baseline on the same dataset...")
+            xda_all_preds, xda_all_labels = infer_xda(self.dataset)
 
             report_xda = classification_report(
                 xda_all_labels,
