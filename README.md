@@ -13,11 +13,20 @@ This multi-task dual-head architecture follows the approach of [XDA](https://arx
 
 Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` ELF sections. Ground truth for instruction boundaries is obtained by linearly disassembling the `.text` section with [Capstone](https://www.capstone-engine.org/).
 
+## Setup
+
+You will need [uv](https://github.com/astral-sh/uv). 
+
+Our trained models can be found [here](https://huggingface.co/dop32/models).
+
+To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
+```bash
+./XDASetup.sh
+```
+
 ## Usage
 
-([Download](https://huggingface.co/dop32/models) our models)
-
-Run using [uv](https://github.com/astral-sh/uv). Dependencies will be installed automatically by `uv`.
+Run using `uv`. Dependencies will be installed automatically by `uv`.
 
 ```bash
 # show all cli commands
