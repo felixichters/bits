@@ -85,3 +85,16 @@ jobs:
         run: |
           echo -e "\n\n\n" >> $GITHUB_STEP_SUMMARY
           echo "$COVERAGE_HTML" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build package distributions
+        run: |
+          python -m pip install --upgrade build
+          python -m build --sdist --wheel --outdir dist
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: reveng_ml-python-package
+          path: dist
+          
+      # For the future: We could also publicly publish the package to PyPI here. 
