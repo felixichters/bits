@@ -99,7 +99,7 @@ def main():
     for pkg in packages:
         for compiler, opt_level in CONFIGS:
             key = f"{pkg['source_type']}|{pkg['name']}|{compiler}_O{opt_level}"
-            if key in status and status[key].get("status") in ("success", "partial"):
+            if key in status and status[key].get("status") in ("success", "partial", "failed"):
                 continue
             tasks.append((pkg, compiler, opt_level))
 

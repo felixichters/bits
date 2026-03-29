@@ -131,8 +131,7 @@ def build_autoconf(source_dir: Path, build_dir: Path, env: dict, timeout: int) -
             timeout=CONFIGURE_TIMEOUT,
             desc="autoreconf",
         )
-        if not ok:
-            return False, f"autoreconf failed: {err}"
+        # Ignore autoreconf failures — fall through to existing configure if present
 
     configure_path = source_dir / "configure"
     if not configure_path.exists():
@@ -143,21 +142,25 @@ def build_autoconf(source_dir: Path, build_dir: Path, env: dict, timeout: int) -
     cflags = env["CFLAGS"]
     cxxflags = env["CXXFLAGS"]
 
-    ok, err = run_cmd(
-        [
-            str(configure_path),
-            f"CC={cc}",
-            f"CXX={cxx}",
-            f"CFLAGS={cflags}",
-            f"CXXFLAGS={cxxflags}",
-            "--disable-shared",
-            "--disable-nls",
-        ],
-        cwd=build_dir,
-        env=env,
-        timeout=CONFIGURE_TIMEOUT,
-        desc="configure",
-    )
+    base_args = [
+        str(configure_path),
+        f"CC={cc}",
+        f"CXX={cxx}",
+        f"CFLAGS={cflags}",
+        f"CXXFLAGS={cxxflags}",
+        "--disable-nls",
+    ]
+    # Try progressively fewer flags — some scripts reject --disable-shared
+    for extra in [["--disable-shared"], []]:
+        ok, err = run_cmd(
+            base_args + extra,
+            cwd=build_dir,
+            env=env,
+            timeout=CONFIGURE_TIMEOUT,
+            desc="configure",
+        )
+        if ok:
+            break
     if not ok:
         return False, f"configure failed: {err}"
 

@@ -17,7 +17,7 @@ Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` E
 
 You will need [uv](https://github.com/astral-sh/uv). 
 
-Our trained models can be found [here](https://huggingface.co/dop32/models).
+Our trained models (including benchmarks) and datasets can be found [here](https://huggingface.co/collections/ichters/reveng).
 
 To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
 ```bash
@@ -154,4 +154,3 @@ Runs inference over the test dataset, outputting precision, recall, F1-scores, c
 
 
 See the [evals directory](evals/) for logs and results from previous training runs.
-
