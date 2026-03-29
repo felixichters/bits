@@ -120,7 +120,9 @@ It sequentially extracts source files, attempts to compile them, and tracks prog
 Our collection of all binaries that compiled successfully is available on [HeiBox (total 1.8GB)](https://heibox.uni-heidelberg.de/d/c792e037da654e528cd3/).
 
 **Current Pipeline:** The new pipeline pulls and compiles packages from sources like Debian, GNU, and [TheStack dataset](https://huggingface.co/datasets/bigcode/the-stack). 
-It parallelizes compilation across a matrix of configurations (`gcc` and `clang` with optimization levels `O0` to `O3`), and organizes the resulting binaries in a structured directory format.
+It parallelizes compilation across a matrix of configurations (`gcc` and `clang` with optimization levels `O0` to `O3`), and organizes the resulting binaries in a structured directory format. It also includes C++ code, unlike our BigQuery dataset.
+
+![Pipeline diagram](docs/preprocessor-pipeline.svg)
 
 ### Machine Learning Pipeline
 Our ML pipeline is executed using our CLI (`uv run python -m reveng_ml`). Various subcommands trigger different stages of the pipeline.
