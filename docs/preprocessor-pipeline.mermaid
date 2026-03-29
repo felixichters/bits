@@ -1,0 +1,39 @@
+graph LR
+    subgraph SourcesLegacy[Sources]
+        B["Google BigQuery<br>(Public GitHub dataset)"]
+    end
+
+    subgraph Sources
+        D[Debian]
+        G[GNU]
+        S[TheStack]
+    end
+
+    subgraph Legacy Pipeline
+        MatrixLegacy["Compiler: gcc<br>Opt. Level: O1"]
+    end
+
+    subgraph Compilation Matrix
+        Matrix["Compilers: gcc / clang<br>Opt. Levels: O0 - O3"]
+    end
+
+    B --> MatrixLegacy
+    D --> Matrix
+    G --> Matrix
+    S --> Matrix
+
+    Matrix --> ELF["Unstripped ELF Binaries"]
+    MatrixLegacy --> ELF
+
+    ELF -- "Extract Ground Truth" --> GT
+    ELF -- "Strip Binary" --> RawBytes
+
+    subgraph Target Data
+        GT["Labels:<br>.symtab -> Functions<br>Capstone -> Instructions"]
+        RawBytes["Input:<br>Raw .text bytes"]
+    end
+
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef matrix fill:#fff3e0,stroke:#ff9800,stroke-width:2px;
+    class Matrix matrix;
+    class MatrixLegacy matrix;
