@@ -184,7 +184,7 @@ See the [evals directory](evals/) for logs and results from previous training ru
 |------|-------|-----------------|--------------|
 | Main source code | ~50% | ~40% | ~10% |
 | Test code | ~70% | ~30% | — |
-| Scripts / pipeline | ~60% | ~40% | — |
+| Scripts / pipeline | ~70% | ~30% | — |
 | XDA comparative evaluation | ~30% | — | ~70% |
 | Documentation | ~30% | ~60% | ~10% |
 | CI/CD & tooling | — | ~100% | — |
