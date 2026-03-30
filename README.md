@@ -17,7 +17,7 @@ Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` E
 
 You will need [uv](https://github.com/astral-sh/uv). 
 
-Our trained models (including benchmarks) and datasets can be found [here](https://huggingface.co/collections/ichters/reveng).
+Our trained models (including benchmarks) can be found [here](https://huggingface.co/collections/ichters/reveng).
 
 To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
 ```bash
@@ -156,3 +156,35 @@ Runs inference over the test dataset, outputting precision, recall, F1-scores, c
 
 
 See the [evals directory](evals/) for logs and results from previous training runs.
+
+# Project Accounting
+
+## Areas of Responsibility
+
+### Tim Schneeberger
+- Initial implementation of the ML pipeline: model architecture, training loop, data preprocessing, evaluation, CLI, utils, and initial tests
+- CI/CD pipelines, code quality, linting, and clean code refactoring
+- Legacy Architecture of data collection & processing (Partially adopted from previous project)
+
+### Felix Ichters
+- Extended and improved the core ML pipeline: instruction boundary detection, dynamic class weights, evaluation metrics, learning rate scheduling, bug fixes
+- Current Architecture of data collection & processing
+- Cluster training
+
+### Tim Schröder
+- Comparative evaluation against the XDA baseline (setup, inference parallelization)
+- Contributions to data pipeline and CLI features
+- Cluster Training
+
+---
+
+## Effort Distribution
+(Calculated with `git blame` on each file, then rounded - might be inaccurate)
+| Area | Felix Ichters | Tim Schneeberger | Tim Schröder |
+|------|-------|-----------------|--------------|
+| Main source code | ~50% | ~40% | ~10% |
+| Test code | ~70% | ~30% | — |
+| Scripts / pipeline | ~60% | ~40% | — |
+| XDA comparative evaluation | ~30% | — | ~70% |
+| Documentation | ~30% | ~60% | ~10% |
+| CI/CD & tooling | — | ~100% | — |

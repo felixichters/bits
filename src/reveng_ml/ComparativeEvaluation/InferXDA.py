@@ -48,8 +48,8 @@ def infer_xda(dataset: Dataset, xda_dir: Path | None = None) -> tuple[list[int],
         from fairseq.models.roberta import RobertaModel  # noqa: E402 — XDA's vendored fairseq
 
         xda = RobertaModel.from_pretrained(
-            "checkpoints/finetune_msvs_funcbound_64",
-            "checkpoint_best.pt",
+            "checkpoints/finetune_elf_funcbound_64",
+            "checkpoint_best_elf_funcBound.pt",
             "data-bin/funcbound_msvs_64",
             bpe=None,
             user_dir="finetune_tasks",
@@ -71,7 +71,7 @@ def infer_xda(dataset: Dataset, xda_dir: Path | None = None) -> tuple[list[int],
             hex_str = " ".join(hex(b)[2:].ljust(2, "0") for b in batch_data[0])
             encoded_tokens = xda.encode(hex_str)
 
-            logprobs = xda.predict("funcbound", encoded_tokens)
+            logprobs = xda.predict("instbound", encoded_tokens)
             predictions = logprobs.argmax(dim=2).view(-1).tolist()
 
             all_preds.extend(predictions)
