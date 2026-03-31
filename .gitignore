@@ -1,9 +1,6 @@
 /C_COMPILE
 /C_UNZIPPED
 
-# checkpoint files of xda
-*.pt
-
 #temporary files
 models/reveng_boundary_detector_final.bin
 *.dataset
@@ -142,7 +139,6 @@ cython_debug/
 .vs/
 src/.vs/
 src/reveng_ml/.vs/
-src/reveng_ml/ComparativeEvaluation/.vs/
 CppProperties.json
 
 # uv cache

@@ -18,7 +18,6 @@ class Evaluator:
                  model: torch.nn.Module,
                  dataset: BinaryChunkDataset,
                  batch_size: int = 32,
-                 compare_xda: bool = False,
                  task: str = "both"):
         """
         Creates a new Evaluator class.
@@ -27,13 +26,11 @@ class Evaluator:
             model: Trained PyTorch model to evaluate
             dataset: PyTorch dataset
             batch_size (int): Batch size for evaluation
-            compare_xda (bool): Run XDA baseline comparison (disabled by default)
             task (str): "function", "instruction", or "both"
         """
         self.device = get_pytorch_device()
         self.model = model.to(self.device)
         self.dataset = dataset
-        self.compare_xda = compare_xda
         self.task = task
         self.loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -78,20 +75,6 @@ class Evaluator:
         print("Evaluation complete.")
 
         reports = []
-        report_xda = ""
-
-        if self.compare_xda: # pragma: no cover
-            from reveng_ml.ComparativeEvaluation.InferXDA import infer_xda
-
-            print("Running XDA baseline on the same dataset...")
-            xda_all_preds, xda_all_labels = infer_xda(self.dataset)
-
-            report_xda = classification_report(
-                xda_all_labels,
-                xda_all_preds,
-                target_names=['O', 'B-FUNC', 'E-FUNC'],
-                zero_division=0
-            )
 
         # Function boundary report
         if func_preds:
@@ -125,6 +108,7 @@ class Evaluator:
             reports.append(report)
 
         # Instruction boundary report
+
         if inst_preds:
             report = classification_report(
                 inst_labels,
@@ -151,10 +135,5 @@ class Evaluator:
             print(f"       INST-START {cm[1][0]:<10} {cm[1][1]:<10}")
             print("-----------------------------\n")
             reports.append(report)
-
-        if self.compare_xda: # pragma: no cover
-            print("\n--- Classification Report XDA ---")
-            print(report_xda)
-            print("-----------------------------\n")
 
         return "\n".join(reports)

@@ -9,7 +9,7 @@ The model operates directly on raw bytes of the `.text` section. A shared BERT e
 - **Function boundary head** (3 classes): `O` (other), `B-FUNC` (function start), `E-FUNC` (function end)
 - **Instruction boundary head** (2 classes): `NOT-START`, `INST-START`
 
-This multi-task dual-head architecture follows the approach of [XDA](https://arxiv.org/pdf/2010.00770).
+The model uses a multi-task dual-head architecture.
 
 Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` ELF sections. Ground truth for instruction boundaries is obtained by linearly disassembling the `.text` section with [Capstone](https://www.capstone-engine.org/).
 
@@ -18,11 +18,6 @@ Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` E
 You will need [uv](https://github.com/astral-sh/uv). 
 
 Our trained models (including benchmarks) can be found [here](https://huggingface.co/collections/ichters/reveng).
-
-To also enable evaluation against XDA, set up the [XDA model](https://arxiv.org/pdf/2010.00770):
-```bash
-./XDASetup.sh
-```
 
 ## Usage
 
@@ -77,9 +72,6 @@ uv run python -m reveng_ml train --data-path <train-dir> --model-dir <model-dir>
 uv run python -m reveng_ml evaluate --model-path <model>.bin --data-path <test>.dataset
 # or
 uv run python -m reveng_ml evaluate --model-path <model>.bin --data-path <test-dir>
-
-# compare against xda baseline
-uv run python -m reveng_ml evaluate --model-path <model>.bin --data-path <test-dir> --compare-xda
 ```
 
 ## Unit tests
@@ -101,7 +93,6 @@ Overview of important files and directories in the project structure:
 | `src/reveng_ml/evaluate.py`            | Evaluates the trained model against the test dataset, generating Scikit-Learn classification reports and confusion matrices for both instruction and function boundary predictions. |
 | `src/reveng_ml/model.py`               | Contains the `DualHeadBertForTokenClassification` PyTorch model definition and the `DualHeadOutput` data structure.                                                                 |
 | `src/reveng_ml/trainer.py`             | The PyTorch training loop handling data batching, weighted multi-task loss computation, etc.                                                                                        |
-| `src/reveng_ml/ComparativeEvaluation/` | Contains scripts to evaluate our model against the XDA baseline, generating comparative classification reports and confusion matrices.                                              |
 | `scripts/legacy/`                      | Contains the legacy data processor pipeline used to process huge Google BigQuery GitHub exports.                                                                                    |
 | `scripts/pipeline/`                    | Contains scripts for the new pipeline to download and compile C/C++ packages across various compiler optimizations from public sources (Debian, GNU, TheStack).                     |
 | `tests/`                               | Directory containing the `pytest` suite for unit testing components like models, data handlers, and training loops.                                                                 |
@@ -172,7 +163,6 @@ See the [evals directory](evals/) for logs and results from previous training ru
 - Cluster training
 
 ### Tim Schröder
-- Comparative evaluation against the XDA baseline (setup, inference parallelization)
 - Contributions to data pipeline and CLI features
 - Cluster Training
 
@@ -185,6 +175,5 @@ See the [evals directory](evals/) for logs and results from previous training ru
 | Main source code | ~50% | ~40% | ~10% |
 | Test code | ~70% | ~30% | — |
 | Scripts / pipeline | ~70% | ~30% | — |
-| XDA comparative evaluation | ~30% | — | ~70% |
 | Documentation | ~30% | ~60% | ~10% |
 | CI/CD & tooling | — | ~100% | — |

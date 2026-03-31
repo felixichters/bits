@@ -45,7 +45,7 @@ def test_evaluator_evaluate_returns_string():
         inst_logits[:, :, 0] = 10.0
         return DualHeadOutput(func_logits=func_logits, inst_logits=inst_logits)
 
-    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False)
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2)
 
     with patch.object(evaluator.model, "forward", side_effect=fake_forward):
         report = evaluator.evaluate()
@@ -73,7 +73,7 @@ def test_evaluator_instruction_task():
         inst_logits[:, :, 0] = 10.0
         return DualHeadOutput(func_logits=None, inst_logits=inst_logits)
 
-    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="instruction")
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, task="instruction")
 
     with patch.object(evaluator.model, "forward", side_effect=fake_forward):
         report = evaluator.evaluate()
@@ -97,7 +97,7 @@ def test_evaluator_function_task():
         func_logits[:, :, 0] = 10.0
         return DualHeadOutput(func_logits=func_logits, inst_logits=None)
 
-    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="function")
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, task="function")
 
     with patch.object(evaluator.model, "forward", side_effect=fake_forward):
         report = evaluator.evaluate()
@@ -123,7 +123,7 @@ def test_evaluator_both_task():
         inst_logits[:, :, 0] = 10.0
         return DualHeadOutput(func_logits=func_logits, inst_logits=inst_logits)
 
-    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, compare_xda=False, task="both")
+    evaluator = Evaluator(model=model, dataset=dataset, batch_size=2, task="both")
 
     with patch.object(evaluator.model, "forward", side_effect=fake_forward):
         report = evaluator.evaluate()
