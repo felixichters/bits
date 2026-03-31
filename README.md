@@ -1,6 +1,6 @@
 # Introduction
 
-This project contains a machine learning system to identify **function boundaries** and **instruction boundaries** in stripped x86/ARM binary executable files using a BERT-based transformer model.
+This project contains a machine learning system to identify **function boundaries** and **instruction boundaries** in stripped binary executable files using a BERT-based transformer model.
 
 ## How it works
 
@@ -82,22 +82,6 @@ uv run pytest
 
 ## Architecture Overview
 
-Overview of important files and directories in the project structure:
-
-| File                                   | Description                                                                                                                                                                         |
-|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `evals/`                               | Directory containing textual logs, metrics, and evaluation results from previous model training runs.                                                                               |
-| `jobs/`                                | Directory containing shell scripts (such as SLURM batch scripts) used to configure and run large-scale model training jobs on computing clusters.                                   |
-| `src/reveng_ml/cli.py`                 | Main command-line interface. This is the primary entrypoint for our application to trigger dataset creation, training, and evaluation.                                              |
-| `src/reveng_ml/data.py`                | Handles raw ELF parsing via `pyelftools` to extract function boundaries, disassembly via Capstone to extract instruction boundaries, and slicing binaries into overlapping chunks.  |
-| `src/reveng_ml/evaluate.py`            | Evaluates the trained model against the test dataset, generating Scikit-Learn classification reports and confusion matrices for both instruction and function boundary predictions. |
-| `src/reveng_ml/model.py`               | Contains the `DualHeadBertForTokenClassification` PyTorch model definition and the `DualHeadOutput` data structure.                                                                 |
-| `src/reveng_ml/trainer.py`             | The PyTorch training loop handling data batching, weighted multi-task loss computation, etc.                                                                                        |
-| `scripts/legacy/`                      | Contains the legacy data processor pipeline used to process huge Google BigQuery GitHub exports.                                                                                    |
-| `scripts/pipeline/`                    | Contains scripts for the new pipeline to download and compile C/C++ packages across various compiler optimizations from public sources (Debian, GNU, TheStack).                     |
-| `tests/`                               | Directory containing the `pytest` suite for unit testing components like models, data handlers, and training loops.                                                                 |
-
-
 ### Data Collection
 
 The project used automated pipelines to gather and compile C/C++ source code into binary executables to serve as training data.
@@ -144,36 +128,3 @@ prioritize instruction mapping over function mapping, or the other way around.
 #### Evaluation (`evaluate`)
 
 Runs inference over the test dataset, outputting precision, recall, F1-scores, confusion matrices, and class distributions.
-
-
-See the [evals directory](evals/) for logs and results from previous training runs.
-
-# Project Accounting
-
-## Areas of Responsibility
-
-### Tim Schneeberger
-- Initial implementation of the ML pipeline: model architecture, training loop, data preprocessing, evaluation, CLI, utils, and initial tests
-- CI/CD pipelines, code quality, linting, and clean code refactoring
-- Legacy Architecture of data collection & processing (Partially adopted from previous project)
-
-### Felix Ichters
-- Extended and improved the core ML pipeline: instruction boundary detection, dynamic class weights, evaluation metrics, learning rate scheduling, bug fixes
-- Current Architecture of data collection & processing
-- Cluster training
-
-### Tim Schröder
-- Contributions to data pipeline and CLI features
-- Cluster Training
-
----
-
-## Effort Distribution
-(Calculated with `git blame` on each file, then rounded - might be inaccurate)
-| Area | Felix Ichters | Tim Schneeberger | Tim Schröder |
-|------|-------|-----------------|--------------|
-| Main source code | ~50% | ~40% | ~10% |
-| Test code | ~70% | ~30% | — |
-| Scripts / pipeline | ~70% | ~30% | — |
-| Documentation | ~30% | ~60% | ~10% |
-| CI/CD & tooling | — | ~100% | — |
