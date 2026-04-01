@@ -17,7 +17,7 @@ Ground truth for function boundaries is extracted from `.symtab` / `.eh_frame` E
 
 You will need [uv](https://github.com/astral-sh/uv). 
 
-Our trained models (including benchmarks) can be found [here](https://huggingface.co/collections/ichters/reveng).
+Trained models (including benchmarks) can be found [here](https://huggingface.co/collections/ichters/reveng).
 
 ## Usage
 
@@ -86,13 +86,11 @@ uv run pytest
 
 The project used automated pipelines to gather and compile C/C++ source code into binary executables to serve as training data.
 
-**Google BigQuery Pipeline:** The Google BigQuery GitHub public dataset was used initially to aquire training data on a large scale. 
-After creating a new Google Cloud account, the user has 300 EUR in free credits, which is sufficient to run our BigQuery SQL script on the entire public GitHub dataset. 
-We collected about 700GB of compressed C code from GitHub via BigQuery.
+**Google BigQuery Pipeline:** The Google BigQuery GitHub public dataset was used initially to aquire training data on a large scale.
 The SQL script is located at `scripts/legacy/BigQuery_GitHub_C.sql` and collects all C source files and header files, along with their corresponding repository names and paths.
 The `CompilePipeline.py` script processes large `.tar.gz` JSON dumps exported from BigQuery in chunks to handle disk and memory constraints. 
 It sequentially extracts source files, attempts to compile them, and tracks progress in a `pipeline_state.json` file, so the process can be safely paused and resumed.
-Our collection of all binaries that compiled successfully is available on [HeiBox (total 1.8GB)](https://heibox.uni-heidelberg.de/d/c792e037da654e528cd3/).
+Collection of all binaries that compiled successfully is available on [HeiBox (total 1.8GB)](https://heibox.uni-heidelberg.de/d/c792e037da654e528cd3/).
 
 **Current Pipeline:** The new pipeline pulls and compiles packages from sources like Debian, GNU, and [TheStack dataset](https://huggingface.co/datasets/bigcode/the-stack). 
 It parallelizes compilation across a matrix of configurations (`gcc` and `clang` with optimization levels `O0` to `O3`), and organizes the resulting binaries in a structured directory format. It also includes C++ code, unlike our BigQuery dataset.
@@ -100,7 +98,7 @@ It parallelizes compilation across a matrix of configurations (`gcc` and `clang`
 ![Pipeline diagram](docs/preprocessor-pipeline.svg)
 
 ### Machine Learning Pipeline
-Our ML pipeline is executed using our CLI (`uv run python -m reveng_ml`). Various subcommands trigger different stages of the pipeline.
+Executed using the CLI (`uv run python -m reveng_ml`). Various subcommands trigger different stages of the pipeline.
 
 #### Dataset Splitting (`split-dataset`)
 
@@ -109,7 +107,7 @@ Separates raw binaries into `train/` and `test/` directories, grouped by reposit
 #### Dataset Creation (`create-dataset`)
 
 *   Reads unstripped ELF binaries and determines function boundaries and instruction boundaries.
-    * Ground truth for function boundaries is detected using the `.symtab` section of the ELF. As a fall-back, we also support reading DWARF info from the `.eh_frame` section if `.symtab` is not available. Instruction boundaries are extracted using Capstone.
+    * Ground truth for function boundaries is detected using the `.symtab` section of the ELF. As a fall-back, also supporting reading DWARF info from the `.eh_frame` section if `.symtab` is not available. Instruction boundaries are extracted using Capstone.
     * Labels for function boundaries: `O` (Other), `B-FUNC` (Begin), `E-FUNC` (End).
     * Labels for instruction boundaries: `NOT-START`, `INST-START`.
 *   Calls `strip` to remove symbols.
